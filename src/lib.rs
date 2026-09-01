@@ -9,94 +9,11 @@ use bevy::{
     prelude::*,
 };
 
-/// Adds the base tween functionality.
-pub struct TweenPlugin;
-
-impl Plugin for TweenPlugin {
-    fn build(&self, app: &mut App) {
-        // PostUpdate is selected as the schedule because game logic will generally decide when a tween should start.
-        // This will then aid in initializing the target to the "start" value in the mutator.
-        // Tweens are likely to affect transforms, so make sure its before propagation.
-        app.configure_sets(
-            PostUpdate,
-            (
-                TweenSystems::Progress,
-                TweenSystems::Mutate,
-                TweenSystems::Cleanup,
-            )
-                .chain(),
-        )
-        .configure_sets(
-            PostUpdate,
-            TweenSystems::Cleanup.before(TransformSystems::Propagate),
-        )
-        .add_systems(
-            PostUpdate,
-            tween_progress_system.in_set(TweenSystems::Progress),
-        )
-        .add_systems(
-            PostUpdate,
-            tween_cleanup_system.in_set(TweenSystems::Cleanup),
-        );
-    }
-}
-
-/// Declares a plugin for an implemented [`TweenType`].
-pub struct TweenTypePlugin<T, M> {
-    _marker: PhantomData<(T, M)>,
-}
-
-impl<T, M> TweenTypePlugin<T, M> {
-    pub fn new() -> Self {
-        Self { _marker: default() }
-    }
-}
-
-impl<T: TweenType<M> + Component, M: Send + Sync + 'static> Plugin for TweenTypePlugin<T, M> {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            PostUpdate,
-            tween_mutator_system::<T, M>.in_set(TweenSystems::Mutate),
-        );
-    }
-}
-
-/// Progresses the timing portion of the tweens.
-fn tween_progress_system(time: Res<Time>, mut state_query: Query<&mut TweenState>) {
-    for mut state in state_query.iter_mut() {
-        // normalize the progress between 0 and 1
-        state.progress += time.delta_secs() / state.duration.as_secs_f32();
-        if state.progress >= 1.0 {
-            state.progress = 1.0;
-        }
-    }
-}
-
-/// Performs the tween mutations.
-fn tween_mutator_system<T: TweenType<M> + Component, M>(
-    tween_query: Query<(&TweenOf, &mut TweenState, &T)>,
-    mut param: StaticSystemParam<T::Param>,
-) {
-    for (tweener, tween_state, tween) in tween_query.iter() {
-        let Some(subject) = T::Param::get_subject_mut(&mut param, tweener.0) else {
-            continue;
-        };
-
-        tween.mutate_subject(
-            subject,
-            tween_state.function.sample_unchecked(tween_state.progress),
-        );
-    }
-}
-
-/// Cleans up after tweens have completed by despawning complete entities.
-fn tween_cleanup_system(state_query: Query<(Entity, &TweenState)>, mut commands: Commands) {
-    for (entity, state) in state_query.iter() {
-        // despawn if the tween is complete
-        if state.progress >= 1.0 {
-            commands.entity(entity).despawn();
-        }
-    }
+pub mod prelude {
+    pub use crate::{
+        MeshMaterial3dStandardMaterialBaseColorTween, TransformTranslationTween, TweenOf,
+        TweenPlugin, TweenState, TweenSystems, TweenTypePlugin, Tweens,
+    };
 }
 
 /// Contains the systems in this plugin.
@@ -147,6 +64,90 @@ impl TweenState {
             duration,
             function,
             ..default()
+        }
+    }
+}
+
+/// Adds the base tween functionality.
+pub struct TweenPlugin;
+
+impl Plugin for TweenPlugin {
+    fn build(&self, app: &mut App) {
+        // Update is selected as the schedule because tweens generally form part of spatial game logic:
+        // you might detect something that causes a tween, but equally you might need to react to a tween moving something.
+        app.configure_sets(
+            Update,
+            (
+                TweenSystems::Progress,
+                TweenSystems::Mutate,
+                TweenSystems::Cleanup,
+            )
+                .chain(),
+        )
+        .configure_sets(
+            Update,
+            TweenSystems::Cleanup.before(TransformSystems::Propagate),
+        )
+        .add_systems(Update, progress_tweens.in_set(TweenSystems::Progress))
+        .add_systems(Update, cleanup_tweens.in_set(TweenSystems::Cleanup));
+    }
+}
+
+/// Declares a plugin for an implemented [`TweenType`].
+/// T is the [`TweenType`] and M is the strategy marker type that allows trait specialization.
+pub struct TweenTypePlugin<T, M> {
+    _marker: PhantomData<(T, M)>,
+}
+
+impl<T, M> TweenTypePlugin<T, M> {
+    pub fn new() -> Self {
+        Self { _marker: default() }
+    }
+}
+
+impl<T: TweenType<M> + Component, M: Send + Sync + 'static> Plugin for TweenTypePlugin<T, M> {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            mutate_tween_subjects::<T, M>.in_set(TweenSystems::Mutate),
+        );
+    }
+}
+
+/// Progresses the timing portion of the tweens.
+fn progress_tweens(time: Res<Time>, mut state_query: Query<&mut TweenState>) {
+    for mut state in state_query.iter_mut() {
+        // normalize the progress between 0 and 1
+        state.progress += time.delta_secs() / state.duration.as_secs_f32();
+        if state.progress >= 1.0 {
+            state.progress = 1.0;
+        }
+    }
+}
+
+/// Performs the tween mutations.
+fn mutate_tween_subjects<T: TweenType<M> + Component, M>(
+    tween_query: Query<(&TweenOf, &mut TweenState, &T)>,
+    mut param: StaticSystemParam<T::Param>,
+) {
+    for (tweener, tween_state, tween) in tween_query.iter() {
+        let Some(subject) = T::Param::get_subject_mut(&mut param, tweener.0) else {
+            continue;
+        };
+
+        tween.mutate_subject(
+            subject,
+            tween_state.function.sample_unchecked(tween_state.progress),
+        );
+    }
+}
+
+/// Cleans up after tweens have completed by despawning complete entities.
+fn cleanup_tweens(state_query: Query<(Entity, &TweenState)>, mut commands: Commands) {
+    for (entity, state) in state_query.iter() {
+        // despawn if the tween is complete
+        if state.progress >= 1.0 {
+            commands.entity(entity).despawn();
         }
     }
 }
