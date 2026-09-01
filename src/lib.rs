@@ -12,7 +12,7 @@ use bevy::{
 pub mod prelude {
     pub use crate::{
         MeshMaterial3dStandardMaterialBaseColorTween, TransformTranslationTween, TweenOf,
-        TweenPlugin, TweenState, TweenSystems, TweenTypePlugin, Tweens,
+        TweenPlugin, TweenState, TweenSystems, TweenType, TweenTypePlugin, Tweens,
     };
 }
 
