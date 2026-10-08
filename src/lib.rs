@@ -25,7 +25,9 @@ pub enum TweenSystems {
 #[derive(EntityEvent)]
 pub struct TweenFinished {
     // The entity responsible for the tween.
-    pub entity: Entity,
+    #[event_target]
+    pub tween_entity: Entity,
+    pub tweened_entity: Option<Entity>,
 }
 
 /// The entity containing the tween.
@@ -121,15 +123,18 @@ impl<T: TweenType<M> + Component, M: Send + Sync + 'static> Plugin for TweenType
 /// Progresses the timing portion of the tweens.
 fn progress_tweens(
     time: Res<Time>,
-    mut state_query: Query<(Entity, &mut TweenState)>,
+    mut state_query: Query<(Entity, &mut TweenState, Option<&TweenOf>)>,
     mut commands: Commands,
 ) {
-    for (entity, mut state) in state_query.iter_mut() {
+    for (entity, mut state, tween_of) in state_query.iter_mut() {
         // normalize the progress between 0 and 1
         state.progress += time.delta_secs() / state.duration.as_secs_f32();
         if state.progress >= 1.0 {
             state.progress = 1.0;
-            commands.trigger(TweenFinished { entity });
+            commands.trigger(TweenFinished {
+                tween_entity: entity,
+                tweened_entity: tween_of.map(|to| to.0),
+            });
         }
     }
 }
