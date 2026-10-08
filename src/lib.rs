@@ -10,10 +10,7 @@ use bevy::{
 };
 
 pub mod prelude {
-    pub use crate::{
-        MeshMaterial3dStandardMaterialBaseColorTween, TransformTranslationTween, TweenOf,
-        TweenPlugin, TweenState, TweenSystems, TweenType, TweenTypePlugin, Tweens,
-    };
+    pub use crate::*;
 }
 
 /// Contains the systems in this plugin.
@@ -22,6 +19,13 @@ pub enum TweenSystems {
     Progress,
     Mutate,
     Cleanup,
+}
+
+/// Triggered when a tween finishes.
+#[derive(EntityEvent)]
+pub struct TweenFinished {
+    // The entity responsible for the tween.
+    pub entity: Entity,
 }
 
 /// The entity containing the tween.
@@ -115,12 +119,17 @@ impl<T: TweenType<M> + Component, M: Send + Sync + 'static> Plugin for TweenType
 }
 
 /// Progresses the timing portion of the tweens.
-fn progress_tweens(time: Res<Time>, mut state_query: Query<&mut TweenState>) {
-    for mut state in state_query.iter_mut() {
+fn progress_tweens(
+    time: Res<Time>,
+    mut state_query: Query<(Entity, &mut TweenState)>,
+    mut commands: Commands,
+) {
+    for (entity, mut state) in state_query.iter_mut() {
         // normalize the progress between 0 and 1
         state.progress += time.delta_secs() / state.duration.as_secs_f32();
         if state.progress >= 1.0 {
             state.progress = 1.0;
+            commands.trigger(TweenFinished { entity });
         }
     }
 }
