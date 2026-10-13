@@ -1,24 +1,76 @@
-use std::{marker::PhantomData, ops::Deref, time::Duration};
+use std::{
+    any::TypeId,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    ops::Deref,
+    time::Duration,
+};
 
 use bevy::{
     asset::AssetMut,
     ecs::{
         query::QueryData,
-        system::{StaticSystemParam, SystemParam, SystemParamItem},
+        system::{StaticSystemParam, SystemParam, SystemParamItem, lifetimeless::Write},
     },
     prelude::*,
 };
-
-pub mod prelude {
-    pub use crate::*;
-}
 
 /// Contains the systems in this plugin.
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum TweenSystems {
     Progress,
     Mutate,
+    TriggerEvents,
     Cleanup,
+}
+
+/// System set for tween types.
+pub struct TweenTypeSystems<T: TweenType<M>, M> {
+    _marker: PhantomData<(T, M)>,
+}
+
+impl<T: TweenType<M>, M: Send + Sync + 'static> SystemSet for TweenTypeSystems<T, M> {
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        todo!()
+    }
+}
+
+impl<T: TweenType<M>, M> Debug for TweenTypeSystems<T, M> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TweenTypeSystems")
+            .field("_marker", &self._marker)
+            .finish()
+    }
+}
+
+impl<T: TweenType<M>, M: 'static> Hash for TweenTypeSystems<T, M> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        TypeId::of::<T>().hash(state);
+        TypeId::of::<M>().hash(state);
+    }
+}
+
+impl<T: TweenType<M>, M> PartialEq for TweenTypeSystems<T, M> {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl<T: TweenType<M>, M> Eq for TweenTypeSystems<T, M> {}
+
+impl<T: TweenType<M>, M> Default for TweenTypeSystems<T, M> {
+    fn default() -> Self {
+        Self { _marker: default() }
+    }
+}
+
+impl<T: TweenType<M>, M> Clone for TweenTypeSystems<T, M> {
+    fn clone(&self) -> Self {
+        Self {
+            _marker: self._marker.clone(),
+        }
+    }
 }
 
 /// Triggered when a tween finishes.
@@ -51,7 +103,7 @@ pub struct Tweens(Vec<Entity>);
 pub struct TweenState {
     pub duration: Duration,
     pub function: EaseFunction,
-    progress: f32,
+    progress: Option<f32>,
 }
 
 impl Default for TweenState {
@@ -75,27 +127,38 @@ impl TweenState {
 }
 
 /// Adds the base tween functionality.
+///
+/// This feature has been designed with the following guarantees (assuming tweens are spawned during the [`Update`] schedule):
+/// - On the first frame that a tween exists, the subject of the tween will be equal to the start value.
+/// - On the last frame that a tween exists, the subject of the tween will be equal to the end value.
+///
+/// For this guarantee to be visualized, the propagation of any such subject must happen after the [`TweenSystems::Mutate`] set.
+/// For example, transform tweens will be appropriately reflected in the next frame render because the systems in this plugin are ordered before [`TransformSystems::Propagate`].
+///
+/// This guarantee means that a theoretical zero-duration tween will span across two frames: the first frame showing the subject start value, and the second showing the subject end value.
 pub struct TweenPlugin;
 
 impl Plugin for TweenPlugin {
     fn build(&self, app: &mut App) {
-        // Update is selected as the schedule because tweens generally form part of spatial game logic:
-        // you might detect something that causes a tween, but equally you might need to react to a tween moving something.
         app.configure_sets(
-            Update,
-            (
-                TweenSystems::Progress,
-                TweenSystems::Mutate,
-                TweenSystems::Cleanup,
-            )
-                .chain(),
-        )
-        .configure_sets(
-            Update,
-            TweenSystems::Cleanup.before(TransformSystems::Propagate),
-        )
-        .add_systems(Update, progress_tweens.in_set(TweenSystems::Progress))
-        .add_systems(Update, cleanup_tweens.in_set(TweenSystems::Cleanup));
+            PreUpdate,
+            (TweenSystems::TriggerEvents, TweenSystems::Cleanup).chain(),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            (TweenSystems::Progress, TweenSystems::Mutate)
+                .chain()
+                .before(TransformSystems::Propagate),
+        );
+
+        app.add_systems(
+            PreUpdate,
+            trigger_events.in_set(TweenSystems::TriggerEvents),
+        );
+        app.add_systems(PreUpdate, cleanup_tweens.in_set(TweenSystems::Cleanup));
+
+        app.add_systems(PostUpdate, progress_tweens.in_set(TweenSystems::Progress));
     }
 }
 
@@ -111,26 +174,76 @@ impl<T, M> TweenTypePlugin<T, M> {
     }
 }
 
-impl<T: TweenType<M> + Component, M: Send + Sync + 'static> Plugin for TweenTypePlugin<T, M> {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            mutate_tween_subjects::<T, M>.in_set(TweenSystems::Mutate),
-        );
+impl<T: TweenType<M> + Component, M> TweenTypePlugin<T, M> {
+    /// Performs the tween mutations. This is automatically added to the app by the plugin.
+    pub fn mutate_tween_subjects(
+        tween_query: Query<(&TweenOf, &mut TweenState, &T)>,
+        mut param: StaticSystemParam<T::Param>,
+    ) {
+        for (tweener, state, tween) in tween_query.iter() {
+            let Some(progress) = state.progress else {
+                continue;
+            };
+
+            let Some(subject) = T::Param::get_subject_mut(&mut param, tweener.0) else {
+                continue;
+            };
+
+            tween.mutate_subject(subject, state.function.sample_unchecked(progress));
+        }
     }
 }
 
+impl<T: TweenType<M> + Component, M: Send + Sync + 'static> Plugin for TweenTypePlugin<T, M> {
+    fn build(&self, app: &mut App) {
+        let set = T::set();
+
+        T::build(app);
+        app.configure_sets(PostUpdate, set.clone().in_set(TweenSystems::Mutate));
+        app.add_systems(PostUpdate, Self::mutate_tween_subjects.in_set(set.clone()));
+    }
+}
+
+/// Allows the tween type to make configuration changes to the app as part of plugin building.
+pub trait TweenTypePluginConfig {
+    /// Provides an opportunity to modify the app on behalf of the plugin for this tween type.
+    fn build(_app: &mut App) {}
+}
+
 /// Progresses the timing portion of the tweens.
-fn progress_tweens(
-    time: Res<Time>,
-    mut state_query: Query<(Entity, &mut TweenState, Option<&TweenOf>)>,
+fn progress_tweens(time: Res<Time>, mut state_query: Query<&mut TweenState>) {
+    for mut state in state_query.iter_mut() {
+        match state.progress.is_none() {
+            true => {
+                // the tween is not subject to time passed this frame because it wasn't present in the last frame
+                // this effectively initialises it to the start value of the tween type
+                state.progress = Some(0.0);
+            }
+            false => {
+                let duration = state.duration.as_secs_f32();
+                let progress = state.progress.as_mut().unwrap(); // checked with match above
+
+                // normalize the progress between 0 and 1
+                *progress += time.delta_secs() / duration;
+                if *progress >= 1.0 {
+                    *progress = 1.0;
+                }
+            }
+        }
+    }
+}
+
+/// Triggers the [`TweenFinished`] event when the tweens have finished.
+fn trigger_events(
+    state_query: Query<(Entity, &TweenState, Option<&TweenOf>)>,
     mut commands: Commands,
 ) {
-    for (entity, mut state, tween_of) in state_query.iter_mut() {
-        // normalize the progress between 0 and 1
-        state.progress += time.delta_secs() / state.duration.as_secs_f32();
-        if state.progress >= 1.0 {
-            state.progress = 1.0;
+    for (entity, state, tween_of) in state_query.iter() {
+        let Some(progress) = state.progress else {
+            continue;
+        };
+
+        if progress >= 1.0 {
             commands.trigger(TweenFinished {
                 tween_entity: entity,
                 tweened_entity: tween_of.map(|to| to.0),
@@ -139,35 +252,22 @@ fn progress_tweens(
     }
 }
 
-/// Performs the tween mutations.
-fn mutate_tween_subjects<T: TweenType<M> + Component, M>(
-    tween_query: Query<(&TweenOf, &mut TweenState, &T)>,
-    mut param: StaticSystemParam<T::Param>,
-) {
-    for (tweener, tween_state, tween) in tween_query.iter() {
-        let Some(subject) = T::Param::get_subject_mut(&mut param, tweener.0) else {
-            continue;
-        };
-
-        tween.mutate_subject(
-            subject,
-            tween_state.function.sample_unchecked(tween_state.progress),
-        );
-    }
-}
-
 /// Cleans up after tweens have completed by despawning complete entities.
 fn cleanup_tweens(state_query: Query<(Entity, &TweenState)>, mut commands: Commands) {
     for (entity, state) in state_query.iter() {
+        let Some(progress) = state.progress else {
+            continue;
+        };
+
         // despawn if the tween is complete
-        if state.progress >= 1.0 {
+        if progress >= 1.0 {
             commands.entity(entity).despawn();
         }
     }
 }
 
 /// The actual tween component that is specific to a type of tween.
-pub trait TweenType<M>: Sized {
+pub trait TweenType<M>: Sized + TweenTypePluginConfig + Component {
     /// The parameter used for the mutation system.
     type Param: TweenTypeSystemParam;
 
@@ -177,10 +277,27 @@ pub trait TweenType<M>: Sized {
         item: <Self::Param as TweenTypeSystemParam>::Subject<'_, '_>,
         factor: f32,
     );
+}
 
-    /// Provides the plugin for this tween type.
-    fn plugin() -> TweenTypePlugin<Self, M> {
+/// Provides the plugin for a tween type.
+pub trait GetTweenTypePlugin<T, M> {
+    fn plugin() -> TweenTypePlugin<T, M>;
+}
+
+impl<T: TweenType<M>, M> GetTweenTypePlugin<T, M> for T {
+    fn plugin() -> TweenTypePlugin<T, M> {
         TweenTypePlugin::new()
+    }
+}
+
+/// Provides the system srt for the tween type.
+pub trait GetTweenTypeSet<T: TweenType<M>, M> {
+    fn set() -> TweenTypeSystems<T, M>;
+}
+
+impl<T: TweenType<M>, M> GetTweenTypeSet<T, M> for T {
+    fn set() -> TweenTypeSystems<T, M> {
+        TweenTypeSystems::default()
     }
 }
 
@@ -197,7 +314,7 @@ pub trait TweenTypeSystemParam: SystemParam {
 }
 
 /// A tween type that mutates some query data.
-pub trait QueryDataTween: Component {
+pub trait QueryDataTween: Component + TweenTypePluginConfig {
     /// The data for the query to the entity that the tween points to.
     type Data: QueryData + 'static;
 
@@ -242,7 +359,7 @@ impl<'w0, 's0, Q: QueryData + 'static> TweenTypeSystemParam
 }
 
 /// Tweens the asset referenced by an entity.
-pub trait EntityAssetTween: Component {
+pub trait EntityAssetTween: Component + TweenTypePluginConfig {
     /// The asset being tweened.
     type Asset: Asset;
 
@@ -266,10 +383,6 @@ impl<T: EntityAssetTween> TweenType<EntityAssetTweenStrategy> for T {
     ) {
         // pass up
         self.mutate_asset(item, factor);
-    }
-
-    fn plugin() -> TweenTypePlugin<Self, EntityAssetTweenStrategy> {
-        TweenTypePlugin::new()
     }
 }
 
@@ -306,10 +419,16 @@ pub struct TransformTranslationTween {
 }
 
 impl QueryDataTween for TransformTranslationTween {
-    type Data = &'static mut Transform;
+    type Data = Write<Transform>;
 
     fn mutate_data(&self, mut item: <Self::Data as QueryData>::Item<'_, '_>, factor: f32) {
         item.translation = self.start.lerp(self.end, factor);
+    }
+}
+
+impl TweenTypePluginConfig for TransformTranslationTween {
+    fn build(app: &mut App) {
+        app.configure_sets(PostUpdate, Self::set().before(TransformSystems::Propagate));
     }
 }
 
@@ -328,3 +447,5 @@ impl EntityAssetTween for MeshMaterial3dStandardMaterialBaseColorTween {
         asset.base_color = self.start.mix(&self.end, factor);
     }
 }
+
+impl TweenTypePluginConfig for MeshMaterial3dStandardMaterialBaseColorTween {}
