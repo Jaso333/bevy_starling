@@ -10,7 +10,7 @@ pub struct TransformTranslationTween {
 }
 
 impl TweenType for TransformTranslationTween {
-    type Strategy = QueryDataTweenMutator<Write<Transform>>;
+    type Strategy = QueryDataTweenStrategy<Write<Transform>>;
 
     fn mutate_subject(
         &self,
@@ -18,6 +18,56 @@ impl TweenType for TransformTranslationTween {
         factor: f32,
     ) {
         item.translation = self.start.lerp(self.end, factor);
+    }
+
+    fn mutate_app(app: &mut App) {
+        app.configure_sets(
+            PostUpdate,
+            TweenTypeSystems::<Self>::default().before(TransformSystems::Propagate),
+        );
+    }
+}
+
+#[derive(Component, Clone, Default)]
+pub struct TransformRotationTween {
+    pub start: Quat,
+    pub end: Quat,
+}
+
+impl TweenType for TransformRotationTween {
+    type Strategy = QueryDataTweenStrategy<Write<Transform>>;
+
+    fn mutate_subject(
+        &self,
+        mut item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
+        factor: f32,
+    ) {
+        item.rotation = self.start.lerp(self.end, factor);
+    }
+
+    fn mutate_app(app: &mut App) {
+        app.configure_sets(
+            PostUpdate,
+            TweenTypeSystems::<Self>::default().before(TransformSystems::Propagate),
+        );
+    }
+}
+
+#[derive(Component, Clone, Default)]
+pub struct TransformRotationZTween {
+    pub start: f32,
+    pub end: f32,
+}
+
+impl TweenType for TransformRotationZTween {
+    type Strategy = QueryDataTweenStrategy<Write<Transform>>;
+
+    fn mutate_subject(
+        &self,
+        mut item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
+        factor: f32,
+    ) {
+        item.rotation = Quat::from_rotation_z(self.start.lerp(self.end, factor));
     }
 
     fn mutate_app(app: &mut App) {

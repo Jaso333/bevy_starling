@@ -53,7 +53,7 @@ impl<T: TweenType + Component> TweenTypePlugin<T> {
         mut param: StaticSystemParam<<T::Strategy as TweenStrategy>::Param>,
     ) {
         for (tweener, state, tween) in tween_query.iter() {
-            let Some(progress) = state.progress else {
+            let Some(mut progress) = state.progress else {
                 continue;
             };
 
@@ -62,6 +62,11 @@ impl<T: TweenType + Component> TweenTypePlugin<T> {
             else {
                 continue;
             };
+
+            // flip the progress if we are going backwards
+            if state.direction == TweenDirection::Backwards {
+                progress = 1.0 - progress;
+            }
 
             tween.mutate_subject(subject, state.function.sample_unchecked(progress));
         }
@@ -176,11 +181,50 @@ pub struct TweenFinished {
     pub tweened_entity: Entity,
 }
 
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub enum TweenLifecycle {
+    #[default]
+    Once,
+    Repeat,
+    BounceRepeat,
+}
+
+impl TweenLifecycle {
+    pub fn repeats(&self) -> bool {
+        match self {
+            Self::Repeat | Self::BounceRepeat => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_one_shot(&self) -> bool {
+        !self.repeats()
+    }
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+enum TweenDirection {
+    #[default]
+    Forwards,
+    Backwards,
+}
+
+impl TweenDirection {
+    fn to_opposite(&self) -> Self {
+        match self {
+            TweenDirection::Forwards => Self::Backwards,
+            TweenDirection::Backwards => Self::Forwards,
+        }
+    }
+}
+
 /// Contains the tween state independent of the tween type.
 #[derive(Component, Clone)]
 pub struct TweenState {
     pub duration: Duration,
     pub function: EaseFunction,
+    pub lifecycle: TweenLifecycle,
+    direction: TweenDirection,
     progress: Option<f32>,
 }
 
@@ -189,6 +233,8 @@ impl Default for TweenState {
         Self {
             duration: default(),
             function: EaseFunction::Linear,
+            lifecycle: default(),
+            direction: default(),
             progress: default(),
         }
     }
@@ -230,27 +276,38 @@ fn progress_tweens(time: Res<Time>, mut state_query: Query<&mut TweenState>) {
                 state.progress = Some(0.0);
             }
             false => {
-                let duration = state.duration.as_secs_f32();
-                let progress = state.progress.as_mut().unwrap(); // checked with match above
+                let mut progress = state.progress.unwrap(); // checked with match above
 
                 // normalize the progress between 0 and 1
-                *progress += time.delta_secs() / duration;
-                if *progress >= 1.0 {
-                    *progress = 1.0;
+                progress += time.delta_secs() / state.duration.as_secs_f32();
+                if progress >= 1.0 {
+                    match state.lifecycle {
+                        TweenLifecycle::Once => progress = 1.0,
+                        TweenLifecycle::Repeat => progress %= 1.0,
+                        TweenLifecycle::BounceRepeat => loop {
+                            progress -= 1.0;
+                            state.direction = state.direction.to_opposite();
+                            if progress < 1.0 {
+                                break;
+                            }
+                        },
+                    }
                 }
+
+                state.progress = Some(progress);
             }
         }
     }
 }
 
-/// Triggers the [`TweenFinished`] event when the tweens have finished.
+/// Triggers the [`TweenFinished`] event when one-shot tweens have finished.
 fn trigger_events(state_query: Query<(Entity, &TweenState, &TweenOf)>, mut commands: Commands) {
     for (entity, state, tween_of) in state_query.iter() {
         let Some(progress) = state.progress else {
             continue;
         };
 
-        if progress >= 1.0 {
+        if progress >= 1.0 && state.lifecycle.is_one_shot() {
             commands.trigger(TweenFinished {
                 tween_entity: entity,
                 tweened_entity: tween_of.0,
@@ -259,7 +316,7 @@ fn trigger_events(state_query: Query<(Entity, &TweenState, &TweenOf)>, mut comma
     }
 }
 
-/// Cleans up after tweens have completed by despawning complete entities.
+/// Cleans up after one-shot tweens have completed by despawning complete entities.
 fn cleanup_tweens(state_query: Query<(Entity, &TweenState)>, mut commands: Commands) {
     for (entity, state) in state_query.iter() {
         let Some(progress) = state.progress else {
@@ -267,7 +324,7 @@ fn cleanup_tweens(state_query: Query<(Entity, &TweenState)>, mut commands: Comma
         };
 
         // despawn if the tween is complete
-        if progress >= 1.0 {
+        if progress >= 1.0 && state.lifecycle.is_one_shot() {
             commands.entity(entity).despawn();
         }
     }

@@ -9,20 +9,13 @@ use bevy::{
     prelude::*,
 };
 
-pub struct QueryDataTweenMutator<D: QueryData + 'static> {
+pub struct QueryDataTweenStrategy<D: QueryData + 'static> {
     _phatom: PhantomData<D>,
 }
 
-impl<D: QueryData + 'static> TweenStrategy for QueryDataTweenMutator<D> {
+impl<D: QueryData + 'static> TweenStrategy for QueryDataTweenStrategy<D> {
     type Param = QueryDataTweenParam<'static, 'static, D>;
 }
-
-// pub trait QueryDataTweenMutator: TweenMutator {
-//     type Data: QueryData + 'static;
-//     type Param = QueryDataTweenParam<'static, 'static, Self::Data>;
-
-//     fn mutate_data(&self, item: <Self::Data as QueryData>::Item<'_, '_>, factor: f32);
-// }
 
 #[derive(SystemParam)]
 pub struct QueryDataTweenParam<'w, 's, D>
