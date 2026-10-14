@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::core::*;
 use bevy::{
     ecs::{
@@ -8,6 +6,7 @@ use bevy::{
     },
     prelude::*,
 };
+use std::marker::PhantomData;
 
 pub struct QueryDataTweenStrategy<D: QueryData + 'static> {
     _phatom: PhantomData<D>,
@@ -25,7 +24,7 @@ where
     subject_query: Query<'w, 's, D>,
 }
 
-impl<'w, 's, D: QueryData + 'static> TweenSystemParam for QueryDataTweenParam<'w, 's, D> {
+impl<D: QueryData + 'static> TweenSystemParam for QueryDataTweenParam<'_, '_, D> {
     type Subject<'sw, 'ss> = D::Item<'sw, 'ss>;
 
     fn get_subject_mut<'a, 'fw, 'fs>(

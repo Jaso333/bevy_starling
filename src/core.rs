@@ -166,10 +166,10 @@ pub trait TweenSystemParam: SystemParam {
     type Subject<'sw, 'ss>;
 
     /// Gets the subject from the system parameter.
-    fn get_subject_mut<'a, 'w, 's>(
-        item: &'a mut SystemParamItem<'w, 's, Self>,
+    fn get_subject_mut<'a, 'fw, 'fs>(
+        item: &'a mut SystemParamItem<'fw, 'fs, Self>,
         entity: Entity,
-    ) -> Option<<Self as TweenSystemParam>::Subject<'a, 's>>;
+    ) -> Option<<Self as TweenSystemParam>::Subject<'a, 'fs>>;
 }
 
 /// Triggered when a tween finishes.
