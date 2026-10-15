@@ -3,49 +3,22 @@ use crate::query_data::*;
 use bevy::ecs::system::lifetimeless::Write;
 use bevy::prelude::*;
 
-#[derive(Component, Clone, Default)]
-pub struct TransformTranslationTween {
-    pub start: Vec3,
-    pub end: Vec3,
-}
-
-impl TweenType for TransformTranslationTween {
-    type Strategy = QueryDataTweenStrategy<Write<Transform>>;
-
-    fn mutate_subject(
-        &self,
-        mut item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
-        factor: f32,
-    ) {
-        item.translation = self.start.lerp(self.end, factor);
-    }
-
-    fn mutate_app(app: &mut App) {
-        app.configure_sets(
-            PostUpdate,
-            TweenTypeSystems::<Self>::default().before(TransformSystems::Propagate),
-        );
-    }
-}
-
 #[derive(Component, Clone)]
-pub struct TransformRotationTween {
-    pub axis: Dir3,
-    pub start: f32,
-    pub end: f32,
+pub enum TransformTween {
+    Translation { start: Vec3, end: Vec3 },
+    Rotation { axis: Dir3, start: f32, end: f32 },
 }
 
-impl Default for TransformRotationTween {
+impl Default for TransformTween {
     fn default() -> Self {
-        Self {
-            axis: Dir3::NEG_Z,
+        Self::Translation {
             start: default(),
             end: default(),
         }
     }
 }
 
-impl TweenType for TransformRotationTween {
+impl TweenType for TransformTween {
     type Strategy = QueryDataTweenStrategy<Write<Transform>>;
 
     fn mutate_subject(
@@ -53,8 +26,14 @@ impl TweenType for TransformRotationTween {
         mut item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
         factor: f32,
     ) {
-        item.rotation =
-            Quat::from_axis_angle(self.axis.as_vec3(), self.start.lerp(self.end, factor));
+        match self {
+            TransformTween::Translation { start, end } => {
+                item.translation = start.lerp(*end, factor);
+            }
+            TransformTween::Rotation { axis, start, end } => {
+                item.rotation = Quat::from_axis_angle(axis.as_vec3(), start.lerp(*end, factor));
+            }
+        }
     }
 
     fn mutate_app(app: &mut App) {

@@ -12,8 +12,7 @@ fn main() {
 
     app.add_plugins(DefaultPlugins);
     app.add_plugins(TweenPlugin);
-    app.add_plugins(TransformTranslationTween::plugin());
-    app.add_plugins(TransformRotationTween::plugin());
+    app.add_plugins(TransformTween::plugin());
     app.add_plugins(SpriteColorTween::plugin());
     app.add_plugins(ColorMaterialColorTween::<MeshMaterial2d<ColorMaterial>>::plugin());
 
@@ -50,7 +49,7 @@ fn launched_sprite(name: String, x: f32) -> impl Scene {
                 function: EaseFunction::ExponentialOut,
                 lifecycle: TweenLifecycle::OnceTransient
             }
-            TransformTranslationTween {
+            TransformTween::Translation {
                 start: { Vec3::new(x, -256.0, 1.0) },
                 end: { Vec3::new(x, 256.0, 1.0) }
             }
@@ -65,7 +64,8 @@ fn launched_sprite(name: String, x: f32) -> impl Scene {
                 function: EaseFunction::ExponentialOut,
                 lifecycle: TweenLifecycle::OnceTransient
             }
-            TransformRotationTween {
+            TransformTween::Rotation {
+                axis: Dir3::NEG_Z,
                 start: 0.0,
                 end: { TAU * 3.0 } // 3 rotations
             }
@@ -93,7 +93,7 @@ fn startup(
                 function: EaseFunction::QuadraticInOut,
                 lifecycle: TweenLifecycle::BounceRepeat
             }
-            TransformTranslationTween {
+            TransformTween::Translation {
                 start: { Vec3::new(-256.0, 0.0, 0.0) },
                 end: { Vec3::new(256.0, 0.0, 0.0) }
             }
@@ -104,7 +104,8 @@ fn startup(
                 function: EaseFunction::Linear,
                 lifecycle: TweenLifecycle::Repeat
             }
-            TransformRotationTween {
+            TransformTween::Rotation {
+                axis: Dir3::NEG_Z,
                 start: 0.0,
                 end: TAU
             }
