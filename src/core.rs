@@ -3,6 +3,7 @@ use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
     marker::PhantomData,
+    sync::Arc,
     time::Duration,
 };
 
@@ -50,9 +51,9 @@ impl<T: TweenType> Default for TweenTypePlugin<T> {
     }
 }
 
-impl<T: TweenType + Component + Send + Sync + 'static> Plugin for TweenTypePlugin<T> {
+impl<T: TweenType + Send + Sync + 'static> Plugin for TweenTypePlugin<T> {
     fn build(&self, app: &mut App) {
-        T::mutate_app(app);
+        T::configure_app(app);
 
         app.configure_sets(
             PostUpdate,
@@ -123,30 +124,30 @@ impl<T: TweenType> PartialEq for TweenTypeSystems<T> {
 impl<T: TweenType> Eq for TweenTypeSystems<T> {}
 
 pub trait TweenType {
-    type Strategy: TweenStrategy;
+    type Param: TweenSystemParam;
 
-    fn mutate_subject(
-        &self,
-        subject: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
-        factor: f32,
-    );
-
-    fn mutate_app(#[allow(unused)] app: &mut App) {}
+    fn configure_app(#[allow(unused)] app: &mut App) {}
 }
 
-pub trait TweenStrategy {
-    type Param: TweenSystemParam;
+pub trait TweenSubject {
+    type Item<'w, 's>;
+}
+
+pub trait TweenMutatorImpl {
+    type Subject: TweenSubject;
+
+    fn mutate(&self, subject: <Self::Subject as TweenSubject>::Item<'_, '_>, factor: f32);
 }
 
 pub trait TweenSystemParam: SystemParam {
     /// The type of the subject that is retrieved from the system param.
-    type Subject<'sw, 'ss>;
+    type Subject: TweenSubject + 'static;
 
     /// Gets the subject from the system parameter.
-    fn get_subject_mut<'a, 'fw, 'fs>(
-        item: &'a mut SystemParamItem<'fw, 'fs, Self>,
+    fn get_subject_mut<'a, 'w, 's>(
+        item: &'a mut SystemParamItem<'w, 's, Self>,
         entity: Entity,
-    ) -> Option<<Self as TweenSystemParam>::Subject<'a, 'fs>>;
+    ) -> Option<<Self::Subject as TweenSubject>::Item<'a, 's>>;
 }
 
 /// Triggered when a tween finishes.
@@ -254,6 +255,38 @@ impl TweenState {
     }
 }
 
+#[derive(Component, Clone)]
+pub struct TweenMutator<S: TweenSubject> {
+    value: Arc<dyn TweenMutatorImpl<Subject = S> + Send + Sync + 'static>,
+}
+
+impl<M: TweenMutatorImpl + Send + Sync + 'static> From<M> for TweenMutator<M::Subject> {
+    fn from(value: M) -> Self {
+        TweenMutator {
+            value: Arc::new(value),
+        }
+    }
+}
+
+impl<S: TweenSubject + 'static> Default for TweenMutator<S> {
+    fn default() -> Self {
+        DefaultTweenMutatorImpl::<S> {
+            _marker: PhantomData,
+        }
+        .into()
+    }
+}
+
+struct DefaultTweenMutatorImpl<S> {
+    _marker: PhantomData<fn() -> S>,
+}
+
+impl<S: TweenSubject> TweenMutatorImpl for DefaultTweenMutatorImpl<S> {
+    type Subject = S;
+
+    fn mutate(&self, _: <Self::Subject as TweenSubject>::Item<'_, '_>, _: f32) {}
+}
+
 /// The entity containing the tween.
 #[derive(Component, Clone)]
 #[relationship(relationship_target = Tweens)]
@@ -311,11 +344,15 @@ fn progress_tweens(time: Res<Time>, mut state_query: Query<&mut TweenState>) {
 }
 
 /// Mutates the subjects of the tweens according to their type.
-fn mutate_subjects<T: TweenType + Component>(
-    tween_query: Query<(&TweenOf, &mut TweenState, &T)>,
-    mut param: StaticSystemParam<<T::Strategy as TweenStrategy>::Param>,
+fn mutate_subjects<T: TweenType>(
+    tween_query: Query<(
+        &TweenOf,
+        &mut TweenState,
+        &TweenMutator<<T::Param as TweenSystemParam>::Subject>,
+    )>,
+    mut param: StaticSystemParam<T::Param>,
 ) {
-    for (tweener, state, tween) in tween_query.iter() {
+    for (tweener, state, mutator) in tween_query.iter() {
         if state.is_finished {
             continue;
         }
@@ -324,9 +361,7 @@ fn mutate_subjects<T: TweenType + Component>(
             continue;
         };
 
-        let Some(subject) =
-            <T::Strategy as TweenStrategy>::Param::get_subject_mut(&mut param, tweener.0)
-        else {
+        let Some(subject) = T::Param::get_subject_mut(&mut param, tweener.0) else {
             continue;
         };
 
@@ -335,7 +370,9 @@ fn mutate_subjects<T: TweenType + Component>(
             progress = 1.0 - progress;
         }
 
-        tween.mutate_subject(subject, state.function.sample_unchecked(progress));
+        mutator
+            .value
+            .mutate(subject, state.function.sample_unchecked(progress));
     }
 }
 

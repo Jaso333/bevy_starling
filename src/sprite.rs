@@ -1,37 +1,25 @@
 use crate::core::*;
-use crate::query_data::*;
+use crate::query::*;
 use bevy::ecs::system::lifetimeless::Write;
 use bevy::prelude::*;
 
-#[derive(Component, Clone)]
-pub enum SpriteTween {
-    Color { start: Color, end: Color },
-}
-
-impl Default for SpriteTween {
-    fn default() -> Self {
-        Self::Color {
-            start: default(),
-            end: default(),
-        }
-    }
-}
+#[derive(Component, Clone, Default)]
+pub struct SpriteTween;
 
 impl TweenType for SpriteTween {
-    type Strategy = QueryDataTweenStrategy<Write<Sprite>>;
+    type Param = QueryTweenParam<'static, 'static, Write<Sprite>>;
+}
 
-    fn mutate_subject(
-        &self,
-        mut subject: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<
-            '_,
-            '_,
-        >,
-        factor: f32,
-    ) {
-        match self {
-            SpriteTween::Color { start, end } => {
-                subject.color = start.mix(end, factor);
-            }
-        }
+#[derive(Clone, Default)]
+pub struct SpriteColorTween {
+    pub start: Color,
+    pub end: Color,
+}
+
+impl TweenMutatorImpl for SpriteColorTween {
+    type Subject = QueryTweenSubject<Write<Sprite>>;
+
+    fn mutate(&self, mut subject: Mut<'_, Sprite>, factor: f32) {
+        subject.color = self.start.mix(&self.end, factor);
     }
 }

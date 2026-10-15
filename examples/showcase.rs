@@ -49,10 +49,10 @@ fn launched_sprite(name: String, x: f32) -> impl Scene {
                 function: EaseFunction::ExponentialOut,
                 lifecycle: TweenLifecycle::OnceTransient
             }
-            TransformTween::Translation {
-                start: { Vec3::new(x, -256.0, 1.0) },
-                end: { Vec3::new(x, 256.0, 1.0) }
-            }
+            TweenMutator::<_>::from(TransformTranslationTween {
+                start: Vec3::new(x, -256.0, 1.0),
+                end: Vec3::new(x, 256.0, 1.0),
+            })
             on(|event: On<TweenFinished>, mut commands: Commands| {
                 // despawn when the launch has finished
                 commands.entity(event.tweened_entity).despawn();
@@ -64,11 +64,11 @@ fn launched_sprite(name: String, x: f32) -> impl Scene {
                 function: EaseFunction::ExponentialOut,
                 lifecycle: TweenLifecycle::OnceTransient
             }
-            TransformTween::Rotation {
+            TweenMutator::<_>::from(TransformRotationTween {
                 axis: Dir3::NEG_Z,
                 start: 0.0,
-                end: { TAU * 3.0 } // 3 rotations
-            }
+                end: TAU * 3.0,
+            })
         ]
     }
 }
@@ -93,10 +93,10 @@ fn startup(
                 function: EaseFunction::QuadraticInOut,
                 lifecycle: TweenLifecycle::BounceRepeat
             }
-            TransformTween::Translation {
-                start: { Vec3::new(-256.0, 0.0, 0.0) },
-                end: { Vec3::new(256.0, 0.0, 0.0) }
-            }
+            TweenMutator::<_>::from(TransformTranslationTween {
+                start: Vec3::new(-256.0, 0.0, 0.0),
+                end: Vec3::new(256.0, 0.0, 0.0)
+            })
             --
             #Rotation
             TweenState {
@@ -104,11 +104,11 @@ fn startup(
                 function: EaseFunction::Linear,
                 lifecycle: TweenLifecycle::Repeat
             }
-            TransformTween::Rotation {
+            TweenMutator::<_>::from(TransformRotationTween {
                 axis: Dir3::NEG_Z,
                 start: 0.0,
                 end: TAU
-            }
+            })
             --
             #Color
             TweenState {
@@ -116,10 +116,10 @@ fn startup(
                 function: EaseFunction::Linear,
                 lifecycle: TweenLifecycle::BounceRepeat
             }
-            SpriteTween::Color {
-                start: { Color::linear_rgb(1.0, 0.0, 0.0) },
-                end: { Color::linear_rgb(0.0, 0.0, 1.0) }
-            }
+            TweenMutator::<_>::from(SpriteColorTween {
+                start: Color::linear_rgb(1.0, 0.0, 0.0),
+                end: Color::linear_rgb(0.0, 0.0, 1.0)
+            })
         ]
     });
 
@@ -138,12 +138,10 @@ fn startup(
                 function: EaseFunction::Linear,
                 lifecycle: TweenLifecycle::BounceRepeat
             }
-            ColorMaterialTween::<MeshMaterial2d<ColorMaterial>> {
-                mutator: ColorMaterialTweenMutator::Color {
-                    start: Color::linear_rgb(0.0, 1.0, 0.0),
-                    end: Color::linear_rgb(1.0, 1.0, 1.0)
-                }
-            }
+            TweenMutator::<_>::from(ColorMaterialColorTween {
+                start: Color::linear_rgb(0.0, 1.0, 0.0),
+                end: Color::linear_rgb(1.0, 1.0, 1.0)
+            })
         ]
     });
 
@@ -164,10 +162,10 @@ fn startup(
                 is_finished: true,
                 direction: TweenDirection::Backwards
             }
-            SpriteTween::Color {
-                start: { Color::linear_rgb(1.0, 0.5, 0.0) },
-                end: { Color::linear_rgb(0.0, 0.5, 1.0) }
-            }
+            TweenMutator::<_>::from(SpriteColorTween {
+                start: Color::linear_rgb(1.0, 0.5, 0.0),
+                end: Color::linear_rgb(0.0, 0.5, 1.0)
+            })
             on(|_: On<TweenFinished>| println!("Hover Tween Finished"))
         ]
         on(on_pickable_sprite_over)
