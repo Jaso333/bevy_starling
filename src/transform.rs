@@ -23,15 +23,18 @@ impl TweenType for TransformTween {
 
     fn mutate_subject(
         &self,
-        mut item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
+        mut subject: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<
+            '_,
+            '_,
+        >,
         factor: f32,
     ) {
         match self {
             TransformTween::Translation { start, end } => {
-                item.translation = start.lerp(*end, factor);
+                subject.translation = start.lerp(*end, factor);
             }
             TransformTween::Rotation { axis, start, end } => {
-                item.rotation = Quat::from_axis_angle(axis.as_vec3(), start.lerp(*end, factor));
+                subject.rotation = Quat::from_axis_angle(axis.as_vec3(), start.lerp(*end, factor));
             }
         }
     }

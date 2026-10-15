@@ -2,7 +2,7 @@ use std::f32::consts::TAU;
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_tween::color_material::ColorMaterialColorTween;
+use bevy_tween::color_material::*;
 use bevy_tween::core::*;
 use bevy_tween::sprite::*;
 use bevy_tween::transform::*;
@@ -13,8 +13,8 @@ fn main() {
     app.add_plugins(DefaultPlugins);
     app.add_plugins(TweenPlugin);
     app.add_plugins(TransformTween::plugin());
-    app.add_plugins(SpriteColorTween::plugin());
-    app.add_plugins(ColorMaterialColorTween::<MeshMaterial2d<ColorMaterial>>::plugin());
+    app.add_plugins(SpriteTween::plugin());
+    app.add_plugins(ColorMaterialTween::<MeshMaterial2d<ColorMaterial>>::plugin());
 
     app.add_systems(Startup, startup);
     app.add_systems(
@@ -116,7 +116,7 @@ fn startup(
                 function: EaseFunction::Linear,
                 lifecycle: TweenLifecycle::BounceRepeat
             }
-            SpriteColorTween {
+            SpriteTween::Color {
                 start: { Color::linear_rgb(1.0, 0.0, 0.0) },
                 end: { Color::linear_rgb(0.0, 0.0, 1.0) }
             }
@@ -138,9 +138,11 @@ fn startup(
                 function: EaseFunction::Linear,
                 lifecycle: TweenLifecycle::BounceRepeat
             }
-            ColorMaterialColorTween::<MeshMaterial2d<ColorMaterial>> {
-                start: Color::linear_rgb(0.0, 1.0, 0.0),
-                end: Color::linear_rgb(1.0, 1.0, 1.0),
+            ColorMaterialTween::<MeshMaterial2d<ColorMaterial>> {
+                mutator: ColorMaterialTweenMutator::Color {
+                    start: Color::linear_rgb(0.0, 1.0, 0.0),
+                    end: Color::linear_rgb(1.0, 1.0, 1.0)
+                }
             }
         ]
     });
@@ -162,7 +164,7 @@ fn startup(
                 is_finished: true,
                 direction: TweenDirection::Backwards
             }
-            SpriteColorTween {
+            SpriteTween::Color {
                 start: { Color::linear_rgb(1.0, 0.5, 0.0) },
                 end: { Color::linear_rgb(0.0, 0.5, 1.0) }
             }

@@ -3,20 +3,35 @@ use crate::query_data::*;
 use bevy::ecs::system::lifetimeless::Write;
 use bevy::prelude::*;
 
-#[derive(Component, Clone, Default)]
-pub struct SpriteColorTween {
-    pub start: Color,
-    pub end: Color,
+#[derive(Component, Clone)]
+pub enum SpriteTween {
+    Color { start: Color, end: Color },
 }
 
-impl TweenType for SpriteColorTween {
+impl Default for SpriteTween {
+    fn default() -> Self {
+        Self::Color {
+            start: default(),
+            end: default(),
+        }
+    }
+}
+
+impl TweenType for SpriteTween {
     type Strategy = QueryDataTweenStrategy<Write<Sprite>>;
 
     fn mutate_subject(
         &self,
-        mut item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
+        mut subject: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<
+            '_,
+            '_,
+        >,
         factor: f32,
     ) {
-        item.color = self.start.mix(&self.end, factor);
+        match self {
+            SpriteTween::Color { start, end } => {
+                subject.color = start.mix(end, factor);
+            }
+        }
     }
 }

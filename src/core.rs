@@ -127,7 +127,7 @@ pub trait TweenType {
 
     fn mutate_subject(
         &self,
-        item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
+        subject: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
         factor: f32,
     );
 
