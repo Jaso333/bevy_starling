@@ -28,10 +28,21 @@ impl TweenType for TransformTranslationTween {
     }
 }
 
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone)]
 pub struct TransformRotationTween {
-    pub start: Quat,
-    pub end: Quat,
+    pub axis: Dir3,
+    pub start: f32,
+    pub end: f32,
+}
+
+impl Default for TransformRotationTween {
+    fn default() -> Self {
+        Self {
+            axis: Dir3::NEG_Z,
+            start: default(),
+            end: default(),
+        }
+    }
 }
 
 impl TweenType for TransformRotationTween {
@@ -42,32 +53,8 @@ impl TweenType for TransformRotationTween {
         mut item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
         factor: f32,
     ) {
-        item.rotation = self.start.lerp(self.end, factor);
-    }
-
-    fn mutate_app(app: &mut App) {
-        app.configure_sets(
-            PostUpdate,
-            TweenTypeSystems::<Self>::default().before(TransformSystems::Propagate),
-        );
-    }
-}
-
-#[derive(Component, Clone, Default)]
-pub struct TransformRotationZTween {
-    pub start: f32,
-    pub end: f32,
-}
-
-impl TweenType for TransformRotationZTween {
-    type Strategy = QueryDataTweenStrategy<Write<Transform>>;
-
-    fn mutate_subject(
-        &self,
-        mut item: <<Self::Strategy as TweenStrategy>::Param as TweenSystemParam>::Subject<'_, '_>,
-        factor: f32,
-    ) {
-        item.rotation = Quat::from_rotation_z(self.start.lerp(self.end, factor));
+        item.rotation =
+            Quat::from_axis_angle(self.axis.as_vec3(), self.start.lerp(self.end, factor));
     }
 
     fn mutate_app(app: &mut App) {
