@@ -7,10 +7,13 @@ use std::{
     time::Duration,
 };
 
-use bevy::{
-    ecs::system::{StaticSystemParam, SystemParam, SystemParamItem},
+use bevy_app::prelude::*;
+use bevy_curve::prelude::*;
+use bevy_ecs::{
     prelude::*,
+    system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
+use bevy_time::prelude::*;
 
 pub struct TweenPlugin;
 
@@ -33,7 +36,7 @@ pub struct TweenTypePlugin<T: TweenType> {
 impl<T: TweenType> Default for TweenTypePlugin<T> {
     fn default() -> Self {
         Self {
-            _phantom: default(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -76,7 +79,9 @@ pub struct TweenTypeSystems<T: TweenType> {
 
 impl<T: TweenType> Default for TweenTypeSystems<T> {
     fn default() -> Self {
-        Self { _marker: default() }
+        Self {
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -219,12 +224,12 @@ pub struct Tween {
 impl Default for Tween {
     fn default() -> Self {
         Self {
-            duration: default(),
+            duration: Default::default(),
             function: EaseFunction::Linear,
-            lifecycle: default(),
-            direction: default(),
-            state: default(),
-            progress: default(),
+            lifecycle: Default::default(),
+            direction: Default::default(),
+            state: Default::default(),
+            progress: Default::default(),
         }
     }
 }
@@ -242,7 +247,7 @@ impl Tween {
         Self {
             duration,
             function,
-            ..default()
+            ..Default::default()
         }
     }
 }

@@ -1,7 +1,10 @@
 use crate::core::*;
 use crate::query::*;
-use bevy::ecs::system::lifetimeless::Write;
-use bevy::prelude::*;
+
+use bevy_ecs::prelude::*;
+use bevy_ecs::system::lifetimeless::Write;
+use bevy_math::prelude::*;
+use bevy_transform::components::Transform;
 
 pub struct TransformTween;
 
@@ -34,8 +37,8 @@ impl Default for TransformRotationTween {
     fn default() -> Self {
         Self {
             axis: Dir3::NEG_Z,
-            start: default(),
-            end: default(),
+            start: Default::default(),
+            end: Default::default(),
         }
     }
 }

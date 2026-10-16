@@ -1,9 +1,10 @@
-use bevy::{ecs::system::lifetimeless::Write, prelude::*};
-
 use crate::{
     core::{TweenMutatorImpl, TweenType},
     query::{QueryTweenParam, QueryTweenSubject},
 };
+use bevy_color::prelude::*;
+use bevy_ecs::{prelude::*, system::lifetimeless::Write};
+use bevy_text::prelude::*;
 
 /// Because this is a newtype component, it makes sense to implement both the overall tween type and the mutator itself.
 #[derive(Clone, Default)]

@@ -5,7 +5,18 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-bevy = "0.20.0"
+bevy_app = { version = "0.20.0", default-features = false }
+bevy_ecs = { version = "0.20.0", default-features = false }
+bevy_sprite = { version = "0.20.0", default-features = false }
+bevy_asset = { version = "0.20.0", default-features = false }
+bevy_sprite_render = { version = "0.20.0", default-features = false }
+bevy_color = { version = "0.20.0", default-features = false }
+bevy_curve = { version = "0.20.0", default-features = false }
+bevy_time = { version = "0.20.0", default-features = false }
+bevy_text = { version = "0.20.0", default-features = false }
+bevy_transform = { version = "0.20.0", default-features = false }
+bevy_math = { version = "0.20.0", default-features = false }
 
 [dev-dependencies]
+bevy = "0.20.0"
 rand = "0.10.3"

@@ -1,12 +1,10 @@
 use std::marker::PhantomData;
 
 use crate::core::*;
-use bevy::{
-    ecs::{
-        query::QueryData,
-        system::{SystemParam, SystemParamItem},
-    },
+use bevy_ecs::{
     prelude::*,
+    query::QueryData,
+    system::{SystemParam, SystemParamItem},
 };
 
 #[derive(SystemParam)]

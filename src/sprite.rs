@@ -1,7 +1,9 @@
 use crate::core::*;
 use crate::query::*;
-use bevy::ecs::system::lifetimeless::Write;
-use bevy::prelude::*;
+use bevy_color::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_ecs::system::lifetimeless::Write;
+use bevy_sprite::prelude::*;
 
 pub struct SpriteTween;
 

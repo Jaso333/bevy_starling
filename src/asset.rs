@@ -1,8 +1,8 @@
 use crate::core::*;
-use bevy::{
-    asset::AssetMut,
-    ecs::system::{SystemParam, SystemParamItem, lifetimeless::Read},
+use bevy_asset::{AssetMut, prelude::*};
+use bevy_ecs::{
     prelude::*,
+    system::{SystemParam, SystemParamItem, lifetimeless::Read},
 };
 use std::{marker::PhantomData, ops::Deref};
 

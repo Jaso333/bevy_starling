@@ -1,6 +1,9 @@
 use crate::asset::*;
 use crate::core::*;
-use bevy::prelude::*;
+use bevy_asset::prelude::*;
+use bevy_color::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_sprite_render::prelude::*;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
