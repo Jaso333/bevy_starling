@@ -44,7 +44,7 @@ fn launched_sprite(name: String, x: f32) -> impl Scene {
         }
         Tweens [
             #Launch
-            TweenState {
+            Tween {
                 duration: Duration::from_secs_f32(2.0),
                 function: EaseFunction::ExponentialOut,
                 lifecycle: TweenLifecycle::OnceTransient
@@ -59,7 +59,7 @@ fn launched_sprite(name: String, x: f32) -> impl Scene {
             })
             --
             #Spin
-            TweenState {
+            Tween {
                 duration: Duration::from_secs_f32(2.0),
                 function: EaseFunction::ExponentialOut,
                 lifecycle: TweenLifecycle::OnceTransient
@@ -88,10 +88,10 @@ fn startup(
         }
         Tweens [
             #LeftRight
-            TweenState {
+            Tween {
                 duration: Duration::from_secs_f32(1.0),
                 function: EaseFunction::QuadraticInOut,
-                lifecycle: TweenLifecycle::BounceRepeat
+                lifecycle: TweenLifecycle::PingPong
             }
             TweenMutator::<_>::from(TransformTranslationTween {
                 start: Vec3::new(-256.0, 0.0, 0.0),
@@ -99,7 +99,7 @@ fn startup(
             })
             --
             #Rotation
-            TweenState {
+            Tween {
                 duration: Duration::from_secs_f32(1.0),
                 function: EaseFunction::Linear,
                 lifecycle: TweenLifecycle::Repeat
@@ -111,10 +111,10 @@ fn startup(
             })
             --
             #Color
-            TweenState {
+            Tween {
                 duration: Duration::from_secs_f32(2.0),
                 function: EaseFunction::Linear,
-                lifecycle: TweenLifecycle::BounceRepeat
+                lifecycle: TweenLifecycle::PingPong
             }
             TweenMutator::<_>::from(SpriteColorTween {
                 start: Color::linear_rgb(1.0, 0.0, 0.0),
@@ -133,10 +133,10 @@ fn startup(
         Transform::from_xyz(0.0, 256.0, 0.0)
         Tweens [
             #Color
-            TweenState {
+            Tween {
                 duration: Duration::from_secs_f32(1.0),
                 function: EaseFunction::Linear,
-                lifecycle: TweenLifecycle::BounceRepeat
+                lifecycle: TweenLifecycle::PingPong
             }
             TweenMutator::<_>::from(ColorMaterialColorTween {
                 start: Color::linear_rgb(0.0, 1.0, 0.0),
@@ -155,18 +155,23 @@ fn startup(
         Pickable
         Tweens [
             #HoverTween
-            TweenState {
+            Tween {
                 duration: Duration::from_secs_f32(1.0),
                 function: EaseFunction::Linear,
-                lifecycle: TweenLifecycle::OnceRetained
-                is_finished: true,
-                direction: TweenDirection::Backwards
+                lifecycle: TweenLifecycle::OnceRetained,
+                direction: TweenDirection::Backwards,
+                state: TweenState::Finished,
+                progress: 1.0
             }
             TweenMutator::<_>::from(SpriteColorTween {
                 start: Color::linear_rgb(1.0, 0.5, 0.0),
                 end: Color::linear_rgb(0.0, 0.5, 1.0)
             })
-            on(|_: On<TweenFinished>| println!("Hover Tween Finished"))
+            TweenMutator::<_>::from(TransformRotationTween {
+                axis: Dir3::NEG_Z,
+                start: 0.0,
+                end: TAU
+            })
         ]
         on(on_pickable_sprite_over)
         on(on_pickable_sprite_out)
@@ -199,7 +204,7 @@ fn startup(
 fn on_pickable_sprite_over(
     event: On<PointerOver>,
     sprite_query: Query<&Tweens>,
-    mut tween_query: Query<&mut TweenState>,
+    mut tween_query: Query<&mut Tween>,
 ) {
     let tween_entity = sprite_query
         .get(event.entity)
@@ -208,15 +213,15 @@ fn on_pickable_sprite_over(
         .next()
         .unwrap();
 
-    let mut state = tween_query.get_mut(tween_entity).unwrap();
-    state.bounce();
-    state.is_finished = false;
+    let mut tween = tween_query.get_mut(tween_entity).unwrap();
+    tween.bounce();
+    tween.state = TweenState::Running; // in case it finished
 }
 
 fn on_pickable_sprite_out(
     event: On<PointerOut>,
     sprite_query: Query<&Tweens>,
-    mut tween_query: Query<&mut TweenState>,
+    mut tween_query: Query<&mut Tween>,
 ) {
     let tween_entity = sprite_query
         .get(event.entity)
@@ -225,9 +230,9 @@ fn on_pickable_sprite_out(
         .next()
         .unwrap();
 
-    let mut state = tween_query.get_mut(tween_entity).unwrap();
-    state.bounce();
-    state.is_finished = false;
+    let mut tween = tween_query.get_mut(tween_entity).unwrap();
+    tween.bounce();
+    tween.state = TweenState::Running; // in case it finished
 }
 
 fn launch_sprite(
@@ -273,28 +278,24 @@ fn update_entities_being_tweened_text(
 
 fn update_active_tweens_text(
     mut text_query: Query<&mut Text, With<ActiveTweensText>>,
-    tween_query: Query<(&Name, &TweenState)>,
+    tween_query: Query<(&Name, &Tween)>,
 ) {
     for mut text in text_query.iter_mut() {
         text.0.clear();
         text.0.push_str("Active Tweens:\n");
 
-        for (name, state) in tween_query.iter() {
+        for (name, tween) in tween_query.iter() {
             text.0.push_str("\n\n");
             text.0.push_str(name);
             text.0.push_str(":");
 
             text.0.push_str(&format!(
                 "\nProgress: {}    ",
-                match state.progress {
-                    Some(progress) => format!("{:.2}", progress),
-                    None => "None".to_owned(),
-                }
+                format!("{:.2}", tween.progress)
             ));
             text.0
-                .push_str(&format!("\nDirection: {:?}    ", state.direction));
-            text.0
-                .push_str(&format!("\nIs Finished: {:?}    ", state.is_finished));
+                .push_str(&format!("\nDirection: {:?}    ", tween.direction));
+            text.0.push_str(&format!("\nState: {:?}    ", tween.state));
         }
     }
 }
