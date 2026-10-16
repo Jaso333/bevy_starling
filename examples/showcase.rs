@@ -2,10 +2,10 @@ use std::f32::consts::TAU;
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_tween::color_material::*;
-use bevy_tween::core::*;
-use bevy_tween::sprite::*;
-use bevy_tween::transform::*;
+use bevy_starling::color_material::*;
+use bevy_starling::core::*;
+use bevy_starling::sprite::*;
+use bevy_starling::transform::*;
 
 fn main() {
     let mut app = App::new();

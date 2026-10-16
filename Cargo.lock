@@ -1685,6 +1685,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_starling"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "rand",
+]
+
+[[package]]
 name = "bevy_state"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1789,14 +1797,6 @@ dependencies = [
  "derive_more",
  "serde",
  "thiserror 2.0.20",
-]
-
-[[package]]
-name = "bevy_tween"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "rand",
 ]
 
 [[package]]
