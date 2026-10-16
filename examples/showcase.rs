@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy_starling::color_material::*;
 use bevy_starling::core::*;
 use bevy_starling::sprite::*;
+use bevy_starling::text_color::TextColorTween;
 use bevy_starling::transform::*;
 
 fn main() {
@@ -15,6 +16,7 @@ fn main() {
     app.add_plugins(TransformTween::plugin());
     app.add_plugins(SpriteTween::plugin());
     app.add_plugins(ColorMaterialTween::<MeshMaterial2d<ColorMaterial>>::plugin());
+    app.add_plugins(TextColorTween::plugin());
 
     app.add_systems(Startup, startup);
     app.add_systems(
@@ -175,6 +177,27 @@ fn startup(
         ]
         on(on_pickable_sprite_over)
         on(on_pickable_sprite_out)
+    });
+
+    commands.spawn_scene(bsn! {
+        #StarlingText
+        Text::new("Starling!")
+        Node {
+            justify_self: JustifySelf::Center,
+            align_self: AlignSelf::Center
+        }
+        Tweens [
+            #GlowingText
+            Tween {
+                duration: Duration::from_secs_f32(1.0),
+                function: EaseFunction::Linear,
+                lifecycle: TweenLifecycle::PingPong,
+            }
+            TweenMutator::<_>::from(TextColorTween {
+                start: Color::linear_rgb(1.0, 0.5, 0.0),
+                end: Color::linear_rgb(0.0, 0.5, 1.0)
+            })
+        ]
     });
 
     let font_size = FontSize::Px(12.0);

@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
-#[derive(Component, Clone, Default)]
 pub struct ColorMaterialTween<R> {
     _phantom: PhantomData<fn() -> R>,
 }

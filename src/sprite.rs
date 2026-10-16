@@ -3,7 +3,6 @@ use crate::query::*;
 use bevy::ecs::system::lifetimeless::Write;
 use bevy::prelude::*;
 
-#[derive(Component, Clone, Default)]
 pub struct SpriteTween;
 
 impl TweenType for SpriteTween {
