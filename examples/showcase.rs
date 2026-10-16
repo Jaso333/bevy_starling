@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 use std::f32::consts::TAU;
 use std::time::Duration;
 
@@ -49,7 +50,6 @@ fn launched_sprite(name: String, x: f32) -> impl Scene {
             Tween {
                 duration: Duration::from_secs_f32(2.0),
                 function: EaseFunction::ExponentialOut,
-                lifecycle: TweenLifecycle::OnceTransient
             }
             TweenMutator::<_>::from(TransformTranslationTween {
                 start: Vec3::new(x, -256.0, 1.0),
@@ -64,7 +64,6 @@ fn launched_sprite(name: String, x: f32) -> impl Scene {
             Tween {
                 duration: Duration::from_secs_f32(2.0),
                 function: EaseFunction::ExponentialOut,
-                lifecycle: TweenLifecycle::OnceTransient
             }
             TweenMutator::<_>::from(TransformRotationTween {
                 axis: Dir3::NEG_Z,
@@ -93,7 +92,9 @@ fn startup(
             Tween {
                 duration: Duration::from_secs_f32(1.0),
                 function: EaseFunction::QuadraticInOut,
-                lifecycle: TweenLifecycle::PingPong
+                pattern: TweenPattern::PingPong,
+                cycles: TweenCycles::Infinite
+
             }
             TweenMutator::<_>::from(TransformTranslationTween {
                 start: Vec3::new(-256.0, 0.0, 0.0),
@@ -104,7 +105,7 @@ fn startup(
             Tween {
                 duration: Duration::from_secs_f32(1.0),
                 function: EaseFunction::Linear,
-                lifecycle: TweenLifecycle::Repeat
+                cycles: TweenCycles::Infinite
             }
             TweenMutator::<_>::from(TransformRotationTween {
                 axis: Dir3::NEG_Z,
@@ -116,7 +117,8 @@ fn startup(
             Tween {
                 duration: Duration::from_secs_f32(2.0),
                 function: EaseFunction::Linear,
-                lifecycle: TweenLifecycle::PingPong
+                pattern: TweenPattern::PingPong,
+                cycles: TweenCycles::Infinite
             }
             TweenMutator::<_>::from(SpriteColorTween {
                 start: Color::linear_rgb(1.0, 0.0, 0.0),
@@ -138,7 +140,8 @@ fn startup(
             Tween {
                 duration: Duration::from_secs_f32(1.0),
                 function: EaseFunction::Linear,
-                lifecycle: TweenLifecycle::PingPong
+                pattern: TweenPattern::PingPong,
+                cycles: TweenCycles::Infinite
             }
             TweenMutator::<_>::from(ColorMaterialColorTween {
                 start: Color::linear_rgb(0.0, 1.0, 0.0),
@@ -159,11 +162,10 @@ fn startup(
             #HoverTween
             Tween {
                 duration: Duration::from_secs_f32(1.0),
-                function: EaseFunction::Linear,
-                lifecycle: TweenLifecycle::OnceRetained,
-                direction: TweenDirection::Backwards,
-                state: TweenState::Finished,
-                progress: 1.0
+                function: EaseFunction::QuinticOut,
+                lifetime: TweenLifetime::Retained,
+                direction: TweenDirection::Backward,
+                cycles: TweenCycles::zero(),
             }
             TweenMutator::<_>::from(SpriteColorTween {
                 start: Color::linear_rgb(1.0, 0.5, 0.0),
@@ -191,11 +193,60 @@ fn startup(
             Tween {
                 duration: Duration::from_secs_f32(1.0),
                 function: EaseFunction::Linear,
-                lifecycle: TweenLifecycle::PingPong,
+                pattern: TweenPattern::PingPong,
+                cycles: TweenCycles::Infinite
             }
             TweenMutator::<_>::from(TextColorTween {
                 start: Color::linear_rgb(1.0, 0.5, 0.0),
                 end: Color::linear_rgb(0.0, 0.5, 1.0)
+            })
+        ]
+    });
+
+    commands.spawn_scene(bsn! {
+        #PingPong
+        Sprite {
+            custom_size: { Some(Vec2::new(64.0, 64.0)) },
+            color: { Color::linear_rgb(1.0, 0.5, 0.5) }
+        }
+        Transform::from_xyz(0.0, -128.0, 0.0)
+        Pickable
+        Tweens [
+            #PingPongTween
+            Tween {
+                duration: Duration::from_secs_f32(1.0),
+                function: EaseFunction::QuadraticOut,
+                pattern: TweenPattern::PingPong,
+                cycles: TweenCycles::Infinite
+            }
+            TweenMutator::<_>::from(TransformRotationTween {
+                axis: Dir3::NEG_Z,
+                start: 0.0,
+                end: PI
+            })
+        ]
+    });
+
+    commands.spawn_scene(bsn! {
+        #ForwardReverse
+        Sprite {
+            custom_size: { Some(Vec2::new(64.0, 64.0)) },
+            color: { Color::linear_rgb(0.5, 1.0, 0.5) }
+        }
+        Transform::from_xyz(128.0, -128.0, 0.0)
+        Pickable
+        Tweens [
+            #ForwardReverseTween
+            Tween {
+                duration: Duration::from_secs_f32(1.0),
+                function: EaseFunction::QuadraticOut,
+                pattern: TweenPattern::ForwardReverse,
+                cycles: TweenCycles::Infinite
+            }
+            TweenMutator::<_>::from(TransformRotationTween {
+                axis: Dir3::NEG_Z,
+                start: 0.0,
+                end: PI
             })
         ]
     });
@@ -237,8 +288,8 @@ fn on_pickable_sprite_over(
         .unwrap();
 
     let mut tween = tween_query.get_mut(tween_entity).unwrap();
-    tween.bounce();
-    tween.state = TweenState::Running; // in case it finished
+    tween.reverse();
+    tween.cycles = TweenCycles::once();
 }
 
 fn on_pickable_sprite_out(
@@ -254,8 +305,8 @@ fn on_pickable_sprite_out(
         .unwrap();
 
     let mut tween = tween_query.get_mut(tween_entity).unwrap();
-    tween.bounce();
-    tween.state = TweenState::Running; // in case it finished
+    tween.reverse();
+    tween.cycles = TweenCycles::once();
 }
 
 fn launch_sprite(

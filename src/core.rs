@@ -151,63 +151,74 @@ pub struct TweenFinished {
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum TweenLifecycle {
+pub enum TweenLifetime {
     #[default]
-    OnceTransient,
-    OnceRetained,
-    Repeat,
-    PingPong,
+    Transient,
+    Retained,
 }
 
-impl TweenLifecycle {
-    pub fn is_transient(&self) -> bool {
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TweenPattern {
+    #[default]
+    Single,
+    PingPong,
+    ForwardReverse,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TweenCycles {
+    Finite(u32),
+    Infinite,
+}
+
+impl TweenCycles {
+    pub fn zero() -> Self {
+        Self::Finite(0)
+    }
+
+    pub fn once() -> Self {
+        Self::Finite(1)
+    }
+
+    pub fn twice() -> Self {
+        Self::Finite(2)
+    }
+
+    pub fn is_exhausted(&self) -> bool {
         match self {
-            Self::OnceTransient => true,
+            TweenCycles::Finite(count) if *count == 0 => true,
             _ => false,
         }
     }
+}
 
-    pub fn is_retained(&self) -> bool {
-        !self.is_transient()
-    }
-
-    pub fn repeats(&self) -> bool {
-        match self {
-            Self::Repeat | Self::PingPong => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_once(&self) -> bool {
-        match self {
-            Self::OnceTransient | Self::OnceRetained => true,
-            _ => false,
-        }
+impl Default for TweenCycles {
+    fn default() -> Self {
+        Self::once()
     }
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TweenDirection {
     #[default]
-    Forwards,
-    Backwards,
+    Forward,
+    Backward,
 }
 
 impl TweenDirection {
     fn to_opposite(&self) -> Self {
         match self {
-            TweenDirection::Forwards => Self::Backwards,
-            TweenDirection::Backwards => Self::Forwards,
+            TweenDirection::Forward => Self::Backward,
+            TweenDirection::Backward => Self::Forward,
         }
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub enum TweenState {
     #[default]
-    NotStarted,
+    Init,
     Running,
-    Finished,
 }
 
 /// Contains the tween data independent of the tween type.
@@ -215,7 +226,9 @@ pub enum TweenState {
 pub struct Tween {
     pub duration: Duration,
     pub function: EaseFunction,
-    pub lifecycle: TweenLifecycle,
+    pub lifetime: TweenLifetime,
+    pub pattern: TweenPattern,
+    pub cycles: TweenCycles,
     pub direction: TweenDirection,
     pub state: TweenState,
     pub progress: f32,
@@ -226,7 +239,9 @@ impl Default for Tween {
         Self {
             duration: Default::default(),
             function: EaseFunction::Linear,
-            lifecycle: Default::default(),
+            lifetime: Default::default(),
+            pattern: Default::default(),
+            cycles: Default::default(),
             direction: Default::default(),
             state: Default::default(),
             progress: Default::default(),
@@ -235,20 +250,10 @@ impl Default for Tween {
 }
 
 impl Tween {
-    /// Reverses the tween according to the current progress, bouncing from the current position.
-    pub fn bounce(&mut self) {
+    /// Reverses the tween according to the current progress by flipping the direction and mirroring the progress.
+    pub fn reverse(&mut self) {
         self.direction = self.direction.to_opposite();
         self.progress = 1.0 - self.progress;
-    }
-}
-
-impl Tween {
-    pub fn new(duration: Duration, function: EaseFunction) -> Self {
-        Self {
-            duration,
-            function,
-            ..Default::default()
-        }
     }
 }
 
@@ -304,19 +309,31 @@ pub struct Tweens(Vec<Entity>);
 fn progress_tweens(time: Res<Time>, mut tween_query: Query<&mut Tween>) {
     for mut tween in tween_query.iter_mut() {
         match tween.state {
-            TweenState::NotStarted => tween.state = TweenState::Running,
+            TweenState::Init => tween.state = TweenState::Running,
             TweenState::Running => {
                 // normalize the progress between 0 and 1
                 tween.progress += time.delta_secs() / tween.duration.as_secs_f32();
                 if tween.progress >= 1.0 {
-                    match tween.lifecycle {
-                        TweenLifecycle::OnceTransient | TweenLifecycle::OnceRetained => {
-                            tween.progress = 1.0
+                    if let TweenCycles::Finite(count) = &mut tween.cycles {
+                        if *count != 0 {
+                            *count -= 1;
                         }
-                        TweenLifecycle::Repeat => tween.progress %= 1.0,
-                        TweenLifecycle::PingPong => loop {
+                    }
+
+                    match tween.cycles {
+                        TweenCycles::Finite(count) if count == 0 => {
+                            tween.progress = 1.0;
+                        }
+                        TweenCycles::Infinite | TweenCycles::Finite(_) => loop {
                             tween.progress -= 1.0;
-                            tween.direction = tween.direction.to_opposite();
+
+                            match tween.pattern {
+                                TweenPattern::PingPong | TweenPattern::ForwardReverse => {
+                                    tween.direction = tween.direction.to_opposite()
+                                }
+                                _ => (),
+                            }
+
                             if tween.progress < 1.0 {
                                 break;
                             }
@@ -324,7 +341,6 @@ fn progress_tweens(time: Res<Time>, mut tween_query: Query<&mut Tween>) {
                     }
                 }
             }
-            _ => (),
         }
     }
 }
@@ -347,38 +363,46 @@ fn mutate_subjects<T: TweenType>(
             continue;
         };
 
-        let mut progress = tween.progress;
+        // ping-pong uses a different strategy for backward, so we retain the progress
+        let progress = match tween.direction {
+            TweenDirection::Forward => tween.progress,
+            TweenDirection::Backward => match tween.pattern {
+                TweenPattern::PingPong => tween.progress,
+                _ => 1.0 - tween.progress,
+            },
+        };
 
-        // flip the progress if we are going backwards
-        if tween.direction == TweenDirection::Backwards {
-            progress = 1.0 - progress;
-        }
+        // sample correctly: if we are on the backward step and the pattern is ping-pong, we need to reverse the sample
+        let Some(sample) = (match tween.pattern {
+            TweenPattern::PingPong if tween.direction == TweenDirection::Backward => {
+                tween.function.sample(progress).map(|s| 1.0 - s)
+            }
+            _ => tween.function.sample(progress),
+        }) else {
+            continue;
+        };
 
-        mutator
-            .value
-            .mutate(subject, tween.function.sample_unchecked(progress));
+        mutator.value.mutate(subject, sample);
     }
 }
 
 /// Handles tweens finishing, including triggering events and despawning of transient tweens.
-fn finish_tweens(mut state_query: Query<(Entity, &mut Tween, &TweenOf)>, mut commands: Commands) {
-    for (entity, mut tween, tween_of) in state_query.iter_mut() {
-        if let TweenState::Running = tween.state
-            && tween.lifecycle.is_once()
-            && tween.progress >= 1.0
-        {
-            tween.state = TweenState::Finished;
+fn finish_tweens(state_query: Query<(Entity, &Tween, &TweenOf)>, mut commands: Commands) {
+    for (entity, tween, tween_of) in state_query.iter() {
+        if tween.state == TweenState::Init {
+            continue;
+        }
+
+        if tween.cycles.is_exhausted() {
             commands.trigger(TweenFinished {
                 tween_entity: entity,
                 tweened_entity: tween_of.0,
             });
-        }
 
-        if let TweenState::Finished = tween.state
-            && tween.lifecycle.is_transient()
-        {
-            // its possible that the handler for the finish event already despawns this, so try_despawn here
-            commands.entity(entity).try_despawn();
+            if tween.lifetime == TweenLifetime::Transient {
+                // its possible that the handler for the finish event already despawns this, so try_despawn here
+                commands.entity(entity).try_despawn();
+            }
         }
     }
 }
