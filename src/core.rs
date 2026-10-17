@@ -180,14 +180,17 @@ impl TweenCycles {
         Self::Finite(1)
     }
 
-    pub fn twice() -> Self {
-        Self::Finite(2)
-    }
-
     pub fn is_exhausted(&self) -> bool {
         match self {
             TweenCycles::Finite(count) if *count == 0 => true,
             _ => false,
+        }
+    }
+
+    pub fn decrement(&mut self) {
+        match self {
+            TweenCycles::Finite(cycles) => *cycles -= 1,
+            TweenCycles::Infinite => (),
         }
     }
 }
@@ -311,33 +314,23 @@ fn progress_tweens(time: Res<Time>, mut tween_query: Query<&mut Tween>) {
         match tween.state {
             TweenState::Init => tween.state = TweenState::Running,
             TweenState::Running => {
-                // normalize the progress between 0 and 1
+                // apply progress since last frame
                 tween.progress += time.delta_secs() / tween.duration.as_secs_f32();
+
+                // loop until all the excess progress is consumed
                 if tween.progress >= 1.0 {
-                    if let TweenCycles::Finite(count) = &mut tween.cycles {
-                        if *count != 0 {
-                            *count -= 1;
-                        }
-                    }
-
-                    match tween.cycles {
-                        TweenCycles::Finite(count) if count == 0 => {
+                    loop {
+                        if tween.cycles.is_exhausted() {
                             tween.progress = 1.0;
+                            break;
                         }
-                        TweenCycles::Infinite | TweenCycles::Finite(_) => loop {
-                            tween.progress -= 1.0;
 
-                            match tween.pattern {
-                                TweenPattern::PingPong | TweenPattern::ForwardReverse => {
-                                    tween.direction = tween.direction.to_opposite()
-                                }
-                                _ => (),
-                            }
+                        tween.progress -= 1.0;
+                        tween.cycles.decrement();
 
-                            if tween.progress < 1.0 {
-                                break;
-                            }
-                        },
+                        if tween.progress < 1.0 {
+                            break;
+                        }
                     }
                 }
             }
@@ -363,23 +356,33 @@ fn mutate_subjects<T: TweenType>(
             continue;
         };
 
-        // ping-pong uses a different strategy for backward, so we retain the progress
+        // get the fundamental progress dictated by overall direction
         let progress = match tween.direction {
             TweenDirection::Forward => tween.progress,
-            TweenDirection::Backward => match tween.pattern {
-                TweenPattern::PingPong => tween.progress,
-                _ => 1.0 - tween.progress,
-            },
+            TweenDirection::Backward => 1.0 - tween.progress,
         };
 
-        // sample correctly: if we are on the backward step and the pattern is ping-pong, we need to reverse the sample
-        let Some(sample) = (match tween.pattern {
-            TweenPattern::PingPong if tween.direction == TweenDirection::Backward => {
-                tween.function.sample(progress).map(|s| 1.0 - s)
+        // sample the function
+        let sample = match tween.pattern {
+            // single tweens sample the function with the unchanged progress
+            TweenPattern::Single => tween.function.sample_clamped(progress),
+            // two-step patterns change the sampling behaviour
+            TweenPattern::PingPong | TweenPattern::ForwardReverse => {
+                // two-step tweens fit the two legs of the tween into one duration
+                // therefore, progress of 1.0 is considered to account for two "lengths" of the computed tween
+                if progress < 0.5 {
+                    tween.function.sample_clamped(progress * 2.0) // the first half is just like a single tween
+                } else {
+                    let progress = (progress - 0.5) * 2.0; // second half of progress normalised
+                    if tween.pattern == TweenPattern::PingPong {
+                        // the return journey is the inverse of the sample for ping-pong
+                        1.0 - tween.function.sample_clamped(progress)
+                    } else {
+                        // otherwise, the return journey is the inverse of the progress
+                        tween.function.sample_clamped(1.0 - progress)
+                    }
+                }
             }
-            _ => tween.function.sample(progress),
-        }) else {
-            continue;
         };
 
         mutator.value.mutate(subject, sample);
