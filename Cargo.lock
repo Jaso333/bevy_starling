@@ -1695,6 +1695,7 @@ dependencies = [
  "bevy_curve",
  "bevy_ecs",
  "bevy_math",
+ "bevy_reflect",
  "bevy_sprite",
  "bevy_sprite_render",
  "bevy_text",

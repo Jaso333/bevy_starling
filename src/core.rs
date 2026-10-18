@@ -13,6 +13,7 @@ use bevy_ecs::{
     prelude::*,
     system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
+use bevy_reflect::Reflect;
 use bevy_time::prelude::*;
 
 pub struct TweenPlugin;
@@ -157,7 +158,7 @@ pub enum TweenLifetime {
     Retained,
 }
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
 pub enum TweenPattern {
     #[default]
     Single,

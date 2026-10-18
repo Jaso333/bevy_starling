@@ -16,7 +16,8 @@ bevy_time = { version = "0.20.0", default-features = false }
 bevy_text = { version = "0.20.0", default-features = false }
 bevy_transform = { version = "0.20.0", default-features = false }
 bevy_math = { version = "0.20.0", default-features = false }
+bevy_reflect = { version = "0.20.0", default-features = false }
 
 [dev-dependencies]
-bevy = "0.20.0"
+bevy = { version = "0.20.0", features = ["bevy_feathers"] }
 rand = "0.10.3"
