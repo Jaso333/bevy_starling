@@ -7,6 +7,9 @@ use bevy_ecs::{
     system::{SystemParam, SystemParamItem},
 };
 
+/// Generic parameter used for tweens that operate on [`QueryData`] as a subject.
+///
+/// Most tween types will reference this parameters.
 #[derive(SystemParam)]
 pub struct QueryTweenParam<'w, 's, D>
 where

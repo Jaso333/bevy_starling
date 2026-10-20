@@ -6,6 +6,14 @@ use bevy_ecs::{
 };
 use std::{marker::PhantomData, ops::Deref};
 
+/// A tween system param that provides a handle to an asset as the subject by dereferencing a newtype component.
+///
+/// For example, MeshMaterial2d is a component that derefs to [`Handle`] of a 2D material.
+///
+/// In summary, this is used for tween types that "tween the asset referenced by this component".
+///
+/// bevy_starling does not support tweening assets directly. Typically, you would put a unique asset on an entity where it needs to be tweened anyway.
+/// When Bevy introduces "assets as entities", there will hopefully be ways to use this library to tween assets directly.
 #[derive(SystemParam)]
 pub struct AssetTweenParam<'w, 's, A, R>
 where

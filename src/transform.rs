@@ -6,12 +6,14 @@ use bevy_ecs::system::lifetimeless::Write;
 use bevy_math::prelude::*;
 use bevy_transform::components::Transform;
 
+/// Tweens values within the [`Transform`] component. This simply uses [`QueryTweenParam`] to get [`Write<Transform>`] as the subject.
 pub struct TransformTween;
 
 impl TweenType for TransformTween {
     type Param = QueryTweenParam<'static, 'static, Write<Transform>>;
 }
 
+/// Mutates [`Transform::translation`] between the `start` and `end` values.
 #[derive(Default, Clone)]
 pub struct TransformTranslationTween {
     pub start: Vec3,
@@ -26,6 +28,9 @@ impl TweenMutator for TransformTranslationTween {
     }
 }
 
+/// Mutates [`Transform::rotation`] between the `start` and `end` values about the `axis` provided.
+///
+/// This is method of rotation is typically more desirable than [`Quat`] interpolation.
 #[derive(Clone)]
 pub struct TransformRotationTween {
     pub axis: Dir3,

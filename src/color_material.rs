@@ -7,6 +7,7 @@ use bevy_sprite_render::prelude::*;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
+/// Tweens the [`ColorMaterial`] referenced by component `R`. Component `R` must implement [`Deref<Target = Handle<ColorMaterial>>`]
 pub struct ColorMaterialTween<R> {
     _phantom: PhantomData<fn() -> R>,
 }
@@ -15,6 +16,9 @@ impl<R: Component + Deref<Target = Handle<ColorMaterial>>> TweenType for ColorMa
     type Param = AssetTweenParam<'static, 'static, ColorMaterial, R>;
 }
 
+/// Mutates [`ColorMaterial::color`] between the `start` and `end` values.
+///
+/// Using HSV colors may not yield desirable results due to the way that HSV color interpolation uses "shortest path" logic.
 #[derive(Clone, Default)]
 pub struct ColorMaterialColorTween {
     pub start: Color,
