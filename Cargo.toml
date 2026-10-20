@@ -19,5 +19,5 @@ bevy_math = { version = "0.20.0", default-features = false }
 bevy_reflect = { version = "0.20.0", default-features = false }
 
 [dev-dependencies]
-bevy = { version = "0.20.0", features = ["bevy_feathers"] }
+bevy = { version = "0.20.0" }
 rand = "0.10.3"
