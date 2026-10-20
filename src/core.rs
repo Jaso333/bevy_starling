@@ -27,6 +27,35 @@ impl Plugin for TweenPlugin {
 
         app.add_systems(PreUpdate, finish_tweens.in_set(TweenSystems::Finish));
         app.add_systems(PostUpdate, progress_tweens.in_set(TweenSystems::Progress));
+
+        #[cfg(feature = "transform")]
+        {
+            use crate::transform::TransformTween;
+
+            app.add_plugins(TransformTween::plugin());
+        }
+
+        #[cfg(feature = "sprite")]
+        {
+            use crate::sprite::SpriteTween;
+
+            app.add_plugins(SpriteTween::plugin());
+        }
+
+        #[cfg(feature = "color_material")]
+        {
+            use crate::color_material::ColorMaterialTween;
+            use bevy_sprite_render::{ColorMaterial, MeshMaterial2d};
+
+            app.add_plugins(ColorMaterialTween::<MeshMaterial2d<ColorMaterial>>::plugin());
+        }
+
+        #[cfg(feature = "text_color")]
+        {
+            use crate::text_color::TextColorTween;
+
+            app.add_plugins(TextColorTween::plugin());
+        }
     }
 }
 

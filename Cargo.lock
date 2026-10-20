@@ -1698,6 +1698,7 @@ dependencies = [
  "bevy_reflect",
  "bevy_sprite",
  "bevy_sprite_render",
+ "bevy_starling",
  "bevy_text",
  "bevy_time",
  "bevy_transform",

@@ -1,7 +1,11 @@
 pub mod asset;
+#[cfg(feature = "color_material")]
 pub mod color_material;
 pub mod core;
 pub mod query;
+#[cfg(feature = "sprite")]
 pub mod sprite;
+#[cfg(feature = "text_color")]
 pub mod text_color;
+#[cfg(feature = "transform")]
 pub mod transform;

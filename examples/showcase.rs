@@ -1,9 +1,7 @@
 use std::{f32::consts::TAU, time::Duration};
 
 use bevy::prelude::*;
-use bevy_starling::{
-    color_material::*, core::*, sprite::*, text_color::TextColorTween, transform::*,
-};
+use bevy_starling::{core::*, sprite::*, transform::*};
 
 const DURATION: f32 = 2.0;
 
@@ -12,11 +10,6 @@ fn main() {
 
     app.add_plugins(DefaultPlugins);
     app.add_plugins(TweenPlugin);
-
-    app.add_plugins(TransformTween::plugin());
-    app.add_plugins(SpriteTween::plugin());
-    app.add_plugins(ColorMaterialTween::<MeshMaterial2d<ColorMaterial>>::plugin());
-    app.add_plugins(TextColorTween::plugin());
 
     app.add_systems(Startup, startup);
 
