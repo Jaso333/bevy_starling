@@ -16,6 +16,33 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_time::prelude::*;
 
+/// Introduces general-purpose tweening functionality to the app. This also adds specific tween types to the app depending on chosen features.
+///
+/// Unlike other crates of a similar nature, this one uses separate entities with relationships to the entities being tweened.
+/// The entity containing the the state of the tween is a [`TweenOf`] the entity containing the component that is tweened.
+///
+/// Tweens require two components: [`Tween`] and [`TweenMutator`]. The former being the state and behaviour, the latter being the configuration of the mutation to the [`TweenSubject`].
+///
+/// [`TweenMutator`] contains any [`TweenMutatorImpl`] that mutates a specific [`TweenSubject`] type. Support for different [`TweenSubject`]s are introduced by implementing [`TweenType`].
+/// Different [`TweenType`]s can be implemented for the same [`TweenSubject`] types, meaning that it is possible that mutators can be reused for different tween types.
+///
+/// When [`TweenType`] is implemented, a [`TweenSystemParam`] type is associated. This defines how the data is provided to the mutator via a [`TweenSubject`] from within a system.
+///
+/// Tween processing is broken into three steps:
+///
+/// - [`PreUpdate`]
+///   - [`TweenSystems::Finish`]
+/// - [`PostUpdate`]
+///   - [`TweenSystems::Progress`]
+///   - [`TweenSystems::Mutate`]
+///
+/// When a tween finishes, the [`TweenFinished`] event is triggered on the tween entity during the [`TweenSystems::Finish`] set execution.
+///
+/// The tween begins in the [`TweenState::Init`] state by default. This means that the first time the tween is progressed, the [`Tween::progress`] value is set to [`0.0`].
+/// This behaviour is the default because the current frame's delta does not apply to a tween that did not exist in the previous frame.
+/// In order to have the first progression of the tween be affected by the current frame delta, spawn a tween with the [`Tween::state`] set to [`TweenState::Running`] instead.
+///
+/// It is possible to have multiple [`TweenMutator`]s on a tween entity if they are parameterized by different [`TweenSubject`] types.
 pub struct TweenPlugin;
 
 impl Plugin for TweenPlugin {
