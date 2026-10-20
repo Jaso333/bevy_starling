@@ -21,10 +21,10 @@ pub struct ColorMaterialColorTween {
     pub end: Color,
 }
 
-impl TweenMutatorImpl for ColorMaterialColorTween {
+impl TweenMutator for ColorMaterialColorTween {
     type Subject = AssetTweenSubject<ColorMaterial>;
 
-    fn mutate(&self, mut subject: <Self::Subject as TweenSubject>::Item<'_, '_>, factor: f32) {
+    fn mutate(&self, subject: &mut <Self::Subject as TweenSubject>::Item<'_, '_>, factor: f32) {
         subject.color = self.start.mix(&self.end, factor)
     }
 }

@@ -38,7 +38,7 @@ fn sprites_row_1() -> impl SceneList {
                 function: EaseFunction::QuadraticOut,
                 cycles: TweenCycles::Infinite,
             }
-            TweenMutator::<_>::from(TransformTranslationTween {
+            TweenMutators::<TransformTween>::from(TransformTranslationTween {
                 start: Vec3::new(-256.0, 128.0, 0.0),
                 end: Vec3::new(-256.0, 256.0, 0.0),
             })
@@ -52,7 +52,7 @@ fn sprites_row_1() -> impl SceneList {
                 cycles: TweenCycles::Infinite,
                 pattern: TweenPattern::PingPong,
             }
-            TweenMutator::<_>::from(TransformTranslationTween {
+            TweenMutators::<TransformTween>::from(TransformTranslationTween {
                 start: Vec3::new(-128.0, 128.0, 0.0),
                 end: Vec3::new(-128.0, 256.0, 0.0),
             })
@@ -66,7 +66,7 @@ fn sprites_row_1() -> impl SceneList {
                 cycles: TweenCycles::Infinite,
                 pattern: TweenPattern::ForwardReverse,
             }
-            TweenMutator::<_>::from(TransformTranslationTween {
+            TweenMutators::<TransformTween>::from(TransformTranslationTween {
                 start: Vec3::new(0.0, 128.0, 0.0),
                 end: Vec3::new(0.0, 256.0, 0.0),
             })
@@ -81,7 +81,7 @@ fn sprites_row_1() -> impl SceneList {
                 cycles: TweenCycles::Infinite,
                 pattern: TweenPattern::PingPong,
             }
-            TweenMutator::<_>::from(TransformRotationTween {
+            TweenMutators::<TransformTween>::from(TransformRotationTween {
                 axis: Dir3::NEG_Z,
                 start: 0.0,
                 end: TAU,
@@ -89,7 +89,6 @@ fn sprites_row_1() -> impl SceneList {
         ]
         --
         @sprite()
-        Transform::from_xyz(256.0, 128.0, 0.0)
         Tweens [
             Tween {
                 duration: Duration::from_secs_f32(DURATION),
@@ -97,11 +96,18 @@ fn sprites_row_1() -> impl SceneList {
                 cycles: TweenCycles::Infinite,
                 pattern: TweenPattern::ForwardReverse,
             }
-            TweenMutator::<_>::from(TransformRotationTween {
-                axis: Dir3::NEG_Z,
-                start: 0.0,
-                end: TAU,
-            })
+            TweenMutators::<TransformTween>::from(
+                TransformRotationTween {
+                    axis: Dir3::NEG_Z,
+                    start: 0.0,
+                    end: TAU,
+                }
+            ).with(
+                TransformTranslationTween {
+                    start: Vec3::new(256.0, 128.0, 0.0),
+                    end: Vec3::new(256.0, 256.0, 0.0),
+                }
+            )
         ]
     }
 }
@@ -117,7 +123,7 @@ fn sprites_row_2() -> impl SceneList {
                 cycles: TweenCycles::Infinite,
                 pattern: TweenPattern::PingPong,
             }
-            TweenMutator::<_>::from(SpriteColorTween {
+            TweenMutators::<SpriteTween>::from(SpriteColorTween {
                 start: Color::srgba(1.0, 0.25, 0.75, 1.0),
                 end: Color::srgba(1.0, 0.25, 0.75, 0.0),
             })
@@ -131,7 +137,7 @@ fn sprites_row_2() -> impl SceneList {
                 function: EaseFunction::QuadraticOut,
                 cycles: TweenCycles::Infinite,
             }
-            TweenMutator::<_>::from(SpriteColorTween {
+            TweenMutators::<SpriteTween>::from(SpriteColorTween {
                 start: Color::srgb(1.0, 0.25, 0.75),
                 end: Color::srgb(0.25, 0.75, 1.0),
             })
@@ -146,7 +152,7 @@ fn sprites_row_2() -> impl SceneList {
                 cycles: TweenCycles::Infinite,
                 pattern: TweenPattern::ForwardReverse,
             }
-            TweenMutator::<_>::from(SpriteColorTween {
+            TweenMutators::<SpriteTween>::from(SpriteColorTween {
                 start: Color::hsv(0.0, 1.0, 1.0),
                 end: Color::hsv(180.0, 1.0, 1.0),
             })

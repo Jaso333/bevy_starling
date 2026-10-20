@@ -21,9 +21,10 @@ use bevy_time::prelude::*;
 /// Unlike other crates of a similar nature, this one uses separate entities with relationships to the entities being tweened.
 /// The entity containing the the state of the tween is a [`TweenOf`] the entity containing the component that is tweened.
 ///
-/// Tweens require two components: [`Tween`] and [`TweenMutator`]. The former being the state and behaviour, the latter being the configuration of the mutation to the [`TweenSubject`].
+/// Tweens require two components: [`Tween`] and [`TweenMutators`]. The former being the state and behaviour, the latter being the part that associates with a particular type of tween.
 ///
-/// [`TweenMutator`] contains any [`TweenMutatorImpl`] that mutates a specific [`TweenSubject`] type. Support for different [`TweenSubject`]s are introduced by implementing [`TweenType`].
+/// [`TweenMutators`] contains any number of compatible [`TweenMutator`]s.
+/// If a [`TweenMutator::Subject`] associates with the same [`TweenSubject`] as the [`TweenType::Param`] associated with the [`TweenType`] of the [`TweenMutators`], then it is compatible.
 /// Different [`TweenType`]s can be implemented for the same [`TweenSubject`] types, meaning that it is possible that mutators can be reused for different tween types.
 ///
 /// When [`TweenType`] is implemented, a [`TweenSystemParam`] type is associated. This defines how the data is provided to the mutator via a [`TweenSubject`] from within a system.
@@ -41,8 +42,6 @@ use bevy_time::prelude::*;
 /// The tween begins in the [`TweenState::Init`] state by default. This means that the first time the tween is progressed, the [`Tween::progress`] value is set to [`0.0`].
 /// This behaviour is the default because the current frame's delta does not apply to a tween that did not exist in the previous frame.
 /// In order to have the first progression of the tween be affected by the current frame delta, spawn a tween with the [`Tween::state`] set to [`TweenState::Running`] instead.
-///
-/// It is possible to have multiple [`TweenMutator`]s on a tween entity if they are parameterized by different [`TweenSubject`] types.
 pub struct TweenPlugin;
 
 impl Plugin for TweenPlugin {
@@ -181,10 +180,10 @@ pub trait TweenSubject {
     type Item<'w, 's>;
 }
 
-pub trait TweenMutatorImpl {
+pub trait TweenMutator {
     type Subject: TweenSubject;
 
-    fn mutate(&self, subject: <Self::Subject as TweenSubject>::Item<'_, '_>, factor: f32);
+    fn mutate(&self, subject: &mut <Self::Subject as TweenSubject>::Item<'_, '_>, factor: f32);
 }
 
 pub trait TweenSystemParam: SystemParam {
@@ -317,36 +316,52 @@ impl Tween {
     }
 }
 
-#[derive(Component, Clone)]
-pub struct TweenMutator<S: TweenSubject> {
-    value: Arc<dyn TweenMutatorImpl<Subject = S> + Send + Sync + 'static>,
+#[derive(Component)]
+pub struct TweenMutators<T: TweenType> {
+    values: Vec<
+        Arc<
+            dyn TweenMutator<Subject = <T::Param as TweenSystemParam>::Subject>
+                + Send
+                + Sync
+                + 'static,
+        >,
+    >,
 }
 
-impl<M: TweenMutatorImpl + Send + Sync + 'static> From<M> for TweenMutator<M::Subject> {
-    fn from(value: M) -> Self {
-        TweenMutator {
-            value: Arc::new(value),
-        }
-    }
-}
-
-impl<S: TweenSubject + 'static> Default for TweenMutator<S> {
+impl<T: TweenType> Default for TweenMutators<T> {
     fn default() -> Self {
-        DefaultTweenMutatorImpl::<S> {
-            _marker: PhantomData,
+        Self {
+            values: Default::default(),
         }
-        .into()
     }
 }
 
-struct DefaultTweenMutatorImpl<S> {
-    _marker: PhantomData<fn() -> S>,
+impl<T: TweenType> Clone for TweenMutators<T> {
+    fn clone(&self) -> Self {
+        Self {
+            values: self.values.clone(),
+        }
+    }
 }
 
-impl<S: TweenSubject> TweenMutatorImpl for DefaultTweenMutatorImpl<S> {
-    type Subject = S;
+impl<T, M> From<M> for TweenMutators<T>
+where
+    T: TweenType,
+    M: TweenMutator<Subject = <T::Param as TweenSystemParam>::Subject> + Send + Sync + 'static,
+{
+    fn from(value: M) -> Self {
+        Self::default().with(value)
+    }
+}
 
-    fn mutate(&self, _: <Self::Subject as TweenSubject>::Item<'_, '_>, _: f32) {}
+impl<T: TweenType> TweenMutators<T> {
+    pub fn with<M>(mut self, mutator: M) -> Self
+    where
+        M: TweenMutator<Subject = <T::Param as TweenSystemParam>::Subject> + Send + Sync + 'static,
+    {
+        self.values.push(Arc::new(mutator));
+        self
+    }
 }
 
 /// The entity containing the tween.
@@ -396,12 +411,8 @@ fn progress_tweens(time: Res<Time>, mut tween_query: Query<&mut Tween>) {
 }
 
 /// Mutates the subjects of the tweens according to their type.
-fn mutate_subjects<T: TweenType>(
-    tween_query: Query<(
-        &TweenOf,
-        &mut Tween,
-        &TweenMutator<<T::Param as TweenSystemParam>::Subject>,
-    )>,
+fn mutate_subjects<T: TweenType + 'static>(
+    tween_query: Query<(&TweenOf, &mut Tween, &TweenMutators<T>)>,
     mut param: StaticSystemParam<T::Param>,
 ) {
     for (tween_of, tween, mutator) in tween_query.iter() {
@@ -409,7 +420,7 @@ fn mutate_subjects<T: TweenType>(
             continue;
         };
 
-        let Some(subject) = T::Param::get_subject_mut(&mut param, tween_of.0) else {
+        let Some(mut subject) = T::Param::get_subject_mut(&mut param, tween_of.0) else {
             continue;
         };
 
@@ -442,7 +453,9 @@ fn mutate_subjects<T: TweenType>(
             }
         };
 
-        mutator.value.mutate(subject, sample);
+        for mutator in mutator.values.iter() {
+            mutator.mutate(&mut subject, sample);
+        }
     }
 }
 

@@ -18,10 +18,10 @@ pub struct TransformTranslationTween {
     pub end: Vec3,
 }
 
-impl TweenMutatorImpl for TransformTranslationTween {
+impl TweenMutator for TransformTranslationTween {
     type Subject = QueryTweenSubject<Write<Transform>>;
 
-    fn mutate(&self, mut subject: Mut<'_, Transform>, factor: f32) {
+    fn mutate(&self, subject: &mut Mut<'_, Transform>, factor: f32) {
         subject.translation = self.start.lerp(self.end, factor);
     }
 }
@@ -43,10 +43,10 @@ impl Default for TransformRotationTween {
     }
 }
 
-impl TweenMutatorImpl for TransformRotationTween {
+impl TweenMutator for TransformRotationTween {
     type Subject = QueryTweenSubject<Write<Transform>>;
 
-    fn mutate(&self, mut subject: Mut<'_, Transform>, factor: f32) {
+    fn mutate(&self, subject: &mut Mut<'_, Transform>, factor: f32) {
         subject.rotation =
             Quat::from_axis_angle(self.axis.as_vec3(), self.start.lerp(self.end, factor));
     }
