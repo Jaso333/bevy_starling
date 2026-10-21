@@ -16,6 +16,7 @@ pub struct TweenPlugins;
 
 impl PluginGroup for TweenPlugins {
     fn build(self) -> PluginGroupBuilder {
+        #[allow(unused_mut)]
         let mut builder = PluginGroupBuilder::start::<Self>().add(crate::core::TweenPlugin);
 
         #[cfg(feature = "transform")]
