@@ -1,7 +1,7 @@
 use std::{f32::consts::TAU, time::Duration};
 
 use bevy::prelude::*;
-use bevy_starling::{core::*, sprite::*, transform::*};
+use bevy_starling::{TweenPlugins, core::*, sprite::*, transform::*};
 
 const DURATION: f32 = 2.0;
 
@@ -9,7 +9,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins);
-    app.add_plugins(TweenPlugin);
+    app.add_plugins(TweenPlugins);
 
     app.add_systems(Startup, startup);
 

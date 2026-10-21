@@ -47,6 +47,7 @@ use bevy_time::prelude::*;
 /// However, if the retrieval of the [`TweenSubject`] is more exotic, a [`TweenType`] that demands a special [`TweenSystemParam`] can be implemented.
 ///
 /// [`TweenSystemParam`] is what parameterizes the system used to mutate [`TweenSubject`]s. Through the power of Bevy's [`SystemParam`], the possibility of tweens is effectively unbounded.
+#[derive(Default)]
 pub struct TweenPlugin;
 
 impl Plugin for TweenPlugin {
@@ -58,35 +59,6 @@ impl Plugin for TweenPlugin {
 
         app.add_systems(PreUpdate, finish_tweens.in_set(TweenSystems::Finish));
         app.add_systems(PostUpdate, progress_tweens.in_set(TweenSystems::Progress));
-
-        #[cfg(feature = "transform")]
-        {
-            use crate::transform::TransformTween;
-
-            app.add_plugins(TransformTween::plugin());
-        }
-
-        #[cfg(feature = "sprite")]
-        {
-            use crate::sprite::SpriteTween;
-
-            app.add_plugins(SpriteTween::plugin());
-        }
-
-        #[cfg(feature = "color_material")]
-        {
-            use crate::color_material::ColorMaterialTween;
-            use bevy_sprite_render::{ColorMaterial, MeshMaterial2d};
-
-            app.add_plugins(ColorMaterialTween::<MeshMaterial2d<ColorMaterial>>::plugin());
-        }
-
-        #[cfg(feature = "text_color")]
-        {
-            use crate::text_color::TextColorTween;
-
-            app.add_plugins(TextColorTween::plugin());
-        }
     }
 }
 
