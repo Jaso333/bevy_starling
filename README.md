@@ -6,6 +6,8 @@ Whilst other tweening libraries are available for Bevy, this one aims to leverag
 
 Tweens are created as their own entities with a relationship (`TweenOf`) to the entity that they mutate. Therefore, tweens in this library are always targeted at entities.
 
+All components are BSN-friendly (see usage section).
+
 The following traits/structs make up the core of the library:
 
 - `TweenType`
@@ -54,7 +56,150 @@ The library also contains common `TweenType`s for use:
 
 # Usage
 
+Add the crate to your project as follows:
 
+```toml
+bevy_starling = { version = "0.1.0", features = ["full"] }
+```
+
+By default, no built-in tweens will be added unless the corresponding feature is enabled (see above). Using the `full` feature will enable all built-in tween types.
+
+Then add the plugins:
+
+```rust
+app.add_plugins(TweenPlugins);
+```
+
+## Spawning
+
+Provided you have the appropriate features for the tween types and mutators, the following will add a tween to an existing entity:
+
+```rust
+commands
+    .entity(entity)
+    .with_related::<TweenOf>((
+        Tween {
+            duration: Duration::from_secs_f32(1.0),
+            function: EaseFunction::QuadraticInOut,
+            pattern: TweenPattern::PingPong,
+            ..default()
+        },
+        TweenMutators::<TransformTween>::from(TransformTranslationTween {
+            start: Vec3::ZERO,
+            end: Vec3::new(0.0, 128.0, 0.0),
+        })
+        .with(TransformRotationTween {
+            axis: Dir3::NEG_Z,
+            start: 0.0,
+            end: TAU,
+        }),
+    ));
+```
+
+In the above example, a translation and rotation mutator is used in the tween that is added to the entity.
+
+It's also just as easy to create BSN scenes with tweens on them. The equivalent of the above would be:
+
+```rust
+fn my_sprite() -> impl Scene {
+    bsn! {
+        Sprite {
+            custom_size: { Some(Vec2::splat(64.0)) },
+            color: Color::srgb(0.75, 1.0, 0.25),
+        }
+        Tweens [
+            Tween {
+                duration: Duration::from_secs_f32(1.0),
+                function: EaseFunction::QuadraticInOut,
+                pattern: TweenPattern::PingPong,
+            }
+            TweenMutators::<TransformTween>::from(TransformTranslationTween {
+                start: Vec3::ZERO,
+                end: Vec3::new(0.0, 128.0, 0.0),
+            })
+            .with(TransformRotationTween {
+                axis: Dir3::NEG_Z,
+                start: 0.0,
+                end: TAU,
+            })
+        ]
+    }
+}
+```
+
+The `TweenFinished` event is triggered for tweens that can exhaust their cycles:
+
+```rust
+fn my_sprite() -> impl Scene {
+    bsn! {
+        ...
+        on(|event: On<TweenFinished>| {
+            println!("Tween of entity {} finished!", event.tweened_entity);
+        })
+    }
+}
+```
+
+## Custom Mutators
+
+If you wish to mutate a component in a unique way, or in a way that is not included in the built-in mutators, simply implement it:
+
+```rust
+#[derive(Clone, Default)]
+pub struct SpriteColorHueTween {
+    pub start: f32,
+    pub end: f32,
+}
+
+impl TweenMutator for SpriteColorHueTween {
+    type Subject = QueryTweenSubject<Write<Sprite>>;
+
+    fn mutate(&self, subject: &mut Mut<'_, Sprite>, factor: f32) {
+        subject.color.set_hue(self.start.lerp(self.end, factor));
+    }
+}
+```
+
+## Custom Tween Types
+
+If you have your own component you want to tween, or there is a Bevy component that is not covered by the built-in tween types, you can create your own:
+
+```rust
+#[derive(Component, Clone, Default)]
+struct Foo {
+    value: f32,
+}
+
+struct FooTween;
+
+impl TweenType for FooTween {
+    type Param = QueryTweenParam<'static, 'static, &'static mut Foo>;
+}
+
+#[derive(Clone, Default)]
+struct FooValueTween {
+    start: f32,
+    end: f32,
+}
+
+impl TweenMutator for FooValueTween {
+    type Subject = QueryTweenSubject<&'static mut Foo>;
+
+    fn mutate(&self, subject: &mut Mut<'_, Foo>, factor: f32) {
+        subject.value = self.start.lerp(self.end, factor);
+    }
+}
+```
+
+When creating custom tween types, it is necesary to add the plugin to your app:
+
+```rust
+app.add_plugins(FooTween::plugin());
+```
+
+## Custom Tween System Param
+
+This is a more complex topic that is out of the scope of this readme; it is also rarely needed. Please refer to examples such as `QueryTweenParam` and `AssetTweenParam` for guidance on how to implement your own.
 
 # License
 
