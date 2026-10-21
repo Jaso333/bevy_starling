@@ -3,6 +3,10 @@ name = "bevy_starling"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
+description = "A tweening library for the Bevy game engine."
+repository = "https://github.com/Jaso333/bevy_starling"
+readme = "README.md"
+keywords = ["bevy", "tween"]
 
 [features]
 full = ["transform", "sprite", "color_material", "text_color"]
