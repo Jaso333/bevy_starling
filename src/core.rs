@@ -455,14 +455,14 @@ fn progress_tweens(time: Res<Time>, mut tween_query: Query<&mut Tween>) {
                 // this defends against possible extremely large delta times, or extremely small durations
                 if tween.progress >= 1.0 {
                     loop {
+                        tween.cycles.decrement();
+
                         if tween.cycles.is_exhausted() {
                             tween.progress = 1.0;
                             break;
                         }
 
                         tween.progress -= 1.0;
-                        tween.cycles.decrement();
-
                         if tween.progress < 1.0 {
                             break;
                         }
