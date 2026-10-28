@@ -202,7 +202,7 @@ pub trait TweenSystemParam: SystemParam {
 }
 
 /// Triggered when a tween finishes.
-#[derive(EntityEvent)]
+#[derive(EntityEvent, Clone)]
 pub struct TweenFinished {
     /// The entity responsible for the tween.
     #[event_target]
@@ -273,7 +273,11 @@ impl TweenCycles {
     /// Decrements the cycle count by 1. This has no effect on infinite cycles.
     pub fn decrement(&mut self) {
         match self {
-            TweenCycles::Finite(cycles) => *cycles -= 1,
+            TweenCycles::Finite(cycles) => {
+                if *cycles > 0 {
+                    *cycles -= 1;
+                }
+            }
             TweenCycles::Infinite => (),
         }
     }
