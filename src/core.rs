@@ -54,10 +54,16 @@ impl Plugin for TweenPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
             PostUpdate,
-            (TweenSystems::Progress, TweenSystems::Mutate).chain(),
+            (
+                TweenSystems::Cleanup,
+                TweenSystems::Progress,
+                TweenSystems::Mutate,
+            )
+                .chain(),
         );
 
         app.add_systems(PreUpdate, finish_tweens.in_set(TweenSystems::Finish));
+        app.add_systems(PostUpdate, cleanup_tweens.in_set(TweenSystems::Cleanup));
         app.add_systems(PostUpdate, progress_tweens.in_set(TweenSystems::Progress));
     }
 }
@@ -112,6 +118,7 @@ pub enum TweenSystems {
     Progress,
     Mutate,
     Finish,
+    Cleanup,
 }
 
 /// The generic system set used for each tween type.
@@ -326,6 +333,8 @@ pub enum TweenState {
     /// Once "Init" is encountered by the progression system, it is switched to this state for the next frame.
     /// When in this state, delta time since the previous frame is applied to the [`Tween::progress`] according to the tween duration.
     Running,
+    /// The tween has exhausted all its cycles. If the lifetime is transient, it will be despawned at the end of the frame.
+    Finished,
 }
 
 /// Contains the tween data independent of the tween type.
@@ -473,6 +482,7 @@ fn progress_tweens(time: Res<Time>, mut tween_query: Query<&mut Tween>) {
                     }
                 }
             }
+            _ => (),
         }
     }
 }
@@ -527,22 +537,26 @@ fn mutate_subjects<T: TweenType + 'static>(
 }
 
 /// Handles tweens finishing, including triggering events and despawning of transient tweens.
-fn finish_tweens(state_query: Query<(Entity, &Tween, &TweenOf)>, mut commands: Commands) {
-    for (entity, tween, tween_of) in state_query.iter() {
-        if tween.state == TweenState::Init {
-            continue;
-        }
-
-        if tween.cycles.is_exhausted() {
-            commands.trigger(TweenFinished {
-                tween_entity: entity,
-                tweened_entity: tween_of.0,
-            });
-
-            if tween.lifetime == TweenLifetime::Transient {
-                // its possible that the handler for the finish event already despawns this, so try_despawn here
-                commands.entity(entity).try_despawn();
+fn finish_tweens(mut tween_query: Query<(Entity, &mut Tween, &TweenOf)>, mut commands: Commands) {
+    for (entity, mut tween, tween_of) in tween_query.iter_mut() {
+        match tween.state {
+            TweenState::Running if tween.cycles.is_exhausted() => {
+                tween.state = TweenState::Finished;
+                commands.trigger(TweenFinished {
+                    tween_entity: entity,
+                    tweened_entity: tween_of.0,
+                });
             }
+            _ => (),
+        }
+    }
+}
+
+/// Removes any finished transient tweens.
+fn cleanup_tweens(tween_query: Query<(Entity, &Tween)>, mut commands: Commands) {
+    for (entity, tween) in tween_query.iter() {
+        if tween.state == TweenState::Finished && tween.lifetime == TweenLifetime::Transient {
+            commands.entity(entity).despawn();
         }
     }
 }

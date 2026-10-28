@@ -12,6 +12,7 @@ fn main() {
     app.add_plugins(TweenPlugins);
 
     app.add_systems(Startup, startup);
+    app.add_systems(Update, launch);
 
     app.run();
 }
@@ -167,4 +168,28 @@ fn sprite() -> impl Scene {
             color: Color::srgb(0.75, 1.0, 0.25),
         }
     }
+}
+
+fn launch(input: Res<ButtonInput<KeyCode>>, mut commands: Commands) {
+    if !input.just_pressed(KeyCode::Space) {
+        return;
+    }
+
+    commands.spawn_scene(bsn! {
+        Sprite {
+            color: Color::srgb(0.5, 0.0, 0.5),
+            custom_size: { Some(Vec2::new(128.0, 128.0)) }
+        }
+        Tweens [
+            Tween {
+                duration: Duration::from_secs_f32(1.0),
+                function: EaseFunction::QuarticOut,
+                lifetime: TweenLifetime::Retained
+            }
+            TweenMutators::<TransformTween>::from(TransformTranslationTween {
+                start: Vec3::new(0.0, 0.0, 1.0),
+                end: Vec3::new(0.0, 256.0, 1.0),
+            })
+        ]
+    });
 }
