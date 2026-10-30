@@ -1,6 +1,6 @@
 [package]
 name = "bevy_starling"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "A tweening library for the Bevy game engine."
@@ -16,20 +16,20 @@ color_material = ["dep:bevy_sprite_render", "dep:bevy_color"]
 text_color = ["dep:bevy_text", "dep:bevy_color"]
 
 [dependencies]
-bevy_app = { version = "0.20.0", default-features = false }
-bevy_ecs = { version = "0.20.0", default-features = false }
-bevy_asset = { version = "0.20.0", default-features = false }
-bevy_curve = { version = "0.20.0", default-features = false }
-bevy_time = { version = "0.20.0", default-features = false }
-bevy_math = { version = "0.20.0", default-features = false, features = ["std"] }
-bevy_reflect = { version = "0.20.0", default-features = false }
-bevy_transform = { version = "0.20.0", default-features = false, optional = true }
-bevy_sprite = { version = "0.20.0", default-features = false, optional = true }
-bevy_sprite_render = { version = "0.20.0", default-features = false, optional = true }
-bevy_text = { version = "0.20.0", default-features = false, optional = true }
-bevy_color = { version = "0.20.0", default-features = false, optional = true }
+bevy_app = { version = "0.20", default-features = false }
+bevy_ecs = { version = "0.20", default-features = false }
+bevy_asset = { version = "0.20", default-features = false }
+bevy_curve = { version = "0.20", default-features = false }
+bevy_time = { version = "0.20", default-features = false }
+bevy_math = { version = "0.20", default-features = false, features = ["std"] }
+bevy_reflect = { version = "0.20", default-features = false }
+bevy_transform = { version = "0.20", default-features = false, optional = true }
+bevy_sprite = { version = "0.20", default-features = false, optional = true }
+bevy_sprite_render = { version = "0.20", default-features = false, optional = true }
+bevy_text = { version = "0.20", default-features = false, optional = true }
+bevy_color = { version = "0.20", default-features = false, optional = true }
 
 [dev-dependencies]
 bevy_starling = { path = ".", features = ["full"] }
-bevy = { version = "0.20.0" }
-rand = "0.10.3"
+bevy = { version = "0.20" }
+rand = "0.10"
